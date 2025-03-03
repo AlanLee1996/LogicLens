@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅行商问题算法可视化</title>
+    <style>
+        :root {
+            --bg-color: #0a0a12;
+            --text-color: #e0e0ff;
+            --primary: #ff2a6d;
+            --secondary: #05d9e8;
+            --tertiary: #01012b;
+            --accent: #ff2a6d;
+            --glow: 0 0 10px var(--accent);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        .visualization {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            border-right: 2px solid var(--primary);
+        }
+
+        #canvas {
+            background-color: var(--tertiary);
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(to right, rgba(5, 217, 232, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(5, 217, 232, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+
+        .control-panel {
+            width: 500px;
+            padding: 15px;
+            background-color: rgba(1, 1, 43, 0.8);
+            border-left: 2px solid var(--primary);
+            overflow-y: auto;
+            box-shadow: -5px 0 15px rgba(255, 42, 109, 0.2);
+        }
+
+        h1, h2, h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            text-shadow: var(--glow);
+        }
+
+        h1 {
+            font-size: 22px;
+            text-align: center;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        h1::after {
+            content: "";
+            position: absolute;
+            bottom: -8px;
+            left: 10%;
+            width: 80%;
+            height: 1px;
+            background: linear-gradient(to right, transparent, var(--primary), transparent);
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 42, 109, 0.3);
+        }
+
+        .control-group h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background-color: var(--tertiary);
+            color: var(--text-color);
+            border: 1px solid var(--primary);
+            padding: 6px 12px;
+            margin: 3px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 5px rgba(255, 42, 109, 0.5);
+            font-size: 13px;
+        }
+
+        button:hover {
+            background-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        button.selected {
+            background-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .slider-container {
+            margin: 10px 0;
+        }
+
+        .slider-container label {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 13px;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+            background: var(--tertiary);
+            height: 4px;
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+            margin: 5px 0;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            box-shadow: 0 0 5px var(--primary);
+        }
+
+        .value-display {
+            margin-top: 2px;
+            text-align: right;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .algorithm-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(5, 217, 232, 0.1);
+            border-radius: 5px;
+            border-left: 3px solid var(--secondary);
+        }
+
+        .stat-box {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: var(--secondary);
+        }
+
+        .cyber-neon-text {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: var(--secondary);
+            font-size: 12px;
+            text-shadow: 0 0 5px var(--secondary);
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .instructions {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: rgba(224, 224, 255, 0.7);
+        }
+
+        .algo-selector {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .flash {
+            animation: flash 0.5s;
+        }
+
+        @keyframes flash {
+            0% { background-color: var(--secondary); }
+            100% { background-color: transparent; }
+        }
+
+        /* 赛博朋克装饰元素 */
+        .cyber-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.2;
+            z-index: 1;
+        }
+
+        .cyber-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            height: 1px;
+            width: 100%;
+            animation: scanline 8s linear infinite;
+            opacity: 0.3;
+        }
+
+        .cyber-line:nth-child(1) { top: 20%; animation-delay: 0s; }
+        .cyber-line:nth-child(2) { top: 40%; animation-delay: 2s; }
+        .cyber-line:nth-child(3) { top: 60%; animation-delay: 4s; }
+        .cyber-line:nth-child(4) { top: 80%; animation-delay: 6s; }
+
+        @keyframes scanline {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(1, 1, 43, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+
+        #loading-overlay.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .loading-text {
+            color: var(--primary);
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid transparent;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="visualization">
+            <canvas id="canvas"></canvas>
+            <div class="grid-overlay"></div>
+            <div class="cyber-lines">
+                <div class="cyber-line"></div>
+                <div class="cyber-line"></div>
+                <div class="cyber-line"></div>
+                <div class="cyber-line"></div>
+            </div>
+            <div class="cyber-neon-text">TSP VISUALIZATION v1.0</div>
+            <div id="loading-overlay">
+                <div class="loading-text">计算中...</div>
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h1>旅行商问题算法可视化</h1>
+            
+            <div class="control-group">
+                <h3>城市控制</h3>
+                <div class="instructions">点击画布添加/删除城市</div>
+                <div class="slider-container">
+                    <label for="city-count">城市数量</label>
+                    <input type="range" id="city-count" min="3" max="50" value="8">
+                    <div class="value-display"><span id="city-count-value">8</span> 个城市</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; gap: 4px;">
+                    <button id="random-cities">随机生成</button>
+                    <button id="clear-cities">清除所有</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>算法选择</h3>
+                <div class="algo-selector">
+                    <button class="algo-btn selected" data-algo="nearest">最近邻</button>
+                    <button class="algo-btn" data-algo="ant">蚁群</button>
+                    <button class="algo-btn" data-algo="genetic">遗传</button>
+                    <button class="algo-btn" data-algo="annealing">模拟退火</button>
+                    <button class="algo-btn" data-algo="slime">黏菌</button>
+                </div>
+                
+                <div class="slider-container">
+                    <label for="animation-speed">动画速度</label>
+                    <input type="range" id="animation-speed" min="1" max="10" value="5">
+                    <div class="value-display">速度: <span id="speed-value">5</span></div>
+                </div>
+                
+                <button id="start-btn">开始求解</button>
+                <button id="pause-btn" disabled>暂停</button>
+                <button id="reset-btn">重置</button>
+            </div>
+
+            <div class="control-group">
+                <h3>算法参数</h3>
+                
+                <!-- 蚁群算法参数 -->
+                <div id="ant-params" class="algo-params" style="display: none;">
+                    <div class="slider-container">
+                        <label for="ant-count">蚂蚁数量</label>
+                        <input type="range" id="ant-count" min="5" max="100" value="30">
+                        <div class="value-display"><span id="ant-count-value">30</span> 只蚂蚁</div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="pheromone-weight">信息素权重</label>
+                        <input type="range" id="pheromone-weight" min="0.1" max="5" step="0.1" value="1">
+                        <div class="value-display"><span id="pheromone-weight-value">1</span></div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="evaporation-rate">信息素蒸发率</label>
+                        <input type="range" id="evaporation-rate" min="0.01" max="0.5" step="0.01" value="0.1">
+                        <div class="value-display"><span id="evaporation-rate-value">0.1</span></div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="ant-max-iterations">最大迭代次数</label>
+                        <input type="range" id="ant-max-iterations" min="10" max="1000" step="10" value="50">
+                        <div class="value-display"><span id="ant-max-iterations-value">50</span> 次</div>
+                    </div>
+                </div>
+                
+                <!-- 遗传算法参数 -->
+                <div id="genetic-params" class="algo-params" style="display: none;">
+                    <div class="slider-container">
+                        <label for="population-size">种群大小</label>
+                        <input type="range" id="population-size" min="10" max="200" value="50">
+                        <div class="value-display"><span id="population-size-value">50</span></div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="mutation-rate">变异率</label>
+                        <input type="range" id="mutation-rate" min="0.01" max="0.5" step="0.01" value="0.1">
+                        <div class="value-display"><span id="mutation-rate-value">0.1</span></div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="crossover-rate">交叉率</label>
+                        <input type="range" id="crossover-rate" min="0.1" max="1" step="0.05" value="0.8">
+                        <div class="value-display"><span id="crossover-rate-value">0.8</span></div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="max-generations">最大迭代次数</label>
+                        <input type="range" id="max-generations" min="100" max="10000" step="100" value="100">
+                        <div class="value-display"><span id="max-generations-value">100</span> 代</div>
+                    </div>
+                </div>
+                
+                <!-- 退火算法参数 -->
+                <div id="annealing-params" class="algo-params" style="display: none;">
+                    <div class="slider-container">
+                        <label for="initial-temperature">初始温度</label>
+                        <input type="range" id="initial-temperature" min="100" max="10000" step="100" value="1000">
+                        <div class="value-display"><span id="initial-temperature-value">1000</span></div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="cooling-rate">冷却率</label>
+                        <input type="range" id="cooling-rate" min="0.8" max="0.999" step="0.001" value="0.95">
+                        <div class="value-display"><span id="cooling-rate-value">0.95</span></div>
+                    </div>
+                </div>
+                
+                <!-- 黏菌算法参数 -->
+                <div id="slime-params" class="algo-params" style="display: none;">
+                    <div class="slider-container">
+                        <label for="slime-count">黏菌数量</label>
+                        <input type="range" id="slime-count" min="5" max="100" value="20">
+                        <div class="value-display"><span id="slime-count-value">20</span></div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="propagation-rate">传播率</label>
+                        <input type="range" id="propagation-rate" min="0.01" max="0.5" step="0.01" value="0.05">
+                        <div class="value-display"><span id="propagation-rate-value">0.05</span></div>
+                    </div>
+                    <div class="slider-container">
+                        <label for="slime-max-iterations">最大迭代次数</label>
+                        <input type="range" id="slime-max-iterations" min="10" max="1000" step="10" value="50">
+                        <div class="value-display"><span id="slime-max-iterations-value">50</span> 次</div>
+                    </div>
+                </div>
+                
+                <!-- 最近邻算法没有参数 -->
+                <div id="nearest-params" class="algo-params">
+                    <p class="instructions">最近邻算法不需要额外参数</p>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>算法信息</h3>
+                <div class="algorithm-info" id="algorithm-explanation">
+                    <p>最近邻算法是一种贪心算法，从一个起始点开始，每次选择最近的未访问城市。</p>
+                    <p>它简单高效，但通常无法找到全局最优解。</p>
+                </div>
+                
+                <div class="stat-box">
+                    <div class="stat-row">
+                        <span class="stat-label">当前状态:</span>
+                        <span id="status">就绪</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">当前迭代:</span>
+                        <span id="iteration">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">当前路径长度:</span>
+                        <span id="current-length">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">历史最优长度:</span>
+                        <span id="best-length">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let cities = []; // 城市坐标数组 [x, y]
+        let bestPath = []; // 最佳路径
+        let currentPath = []; // 当前路径
+        let bestLength = Infinity; // 最佳路径长度
+        let currentLength = 0; // 当前路径长度
+        let animationSpeed = 5; // 动画速度
+        let isRunning = false; // 是否正在运行
+        let isPaused = false; // 是否暂停
+        let currentAlgorithm = 'nearest'; // 当前算法
+        let cityRadius = 8; // 城市半径
+        let clickRadius = 15; // 点击检测半径
+        let solverInterval; // 求解器间隔
+        let iteration = 0; // 迭代次数
+        
+        // 统计元素
+        let statusElement = document.getElementById('status');
+        let iterationElement = document.getElementById('iteration');
+        let currentLengthElement = document.getElementById('current-length');
+        let bestLengthElement = document.getElementById('best-length');
+        
+        // 算法参数
+        const algoParams = {
+            ant: {
+                antCount: 30,
+                pheromoneWeight: 1,
+                evaporationRate: 0.1,
+                maxIterations: 50,
+                pheromoneMatrix: []
+            },
+            genetic: {
+                populationSize: 50,
+                mutationRate: 0.1,
+                crossoverRate: 0.8,
+                maxGenerations: 100,
+                population: []
+            },
+            annealing: {
+                initialTemperature: 1000,
+                currentTemperature: 1000,
+                coolingRate: 0.95
+            },
+            slime: {
+                slimeCount: 20,
+                propagationRate: 0.05,
+                maxIterations: 50,
+                slimeMolds: []
+            }
+        };
+
+        // 算法解释文本
+        const algoExplanations = {
+            nearest: "最近邻算法是一种贪心算法，从一个起始点开始，每次选择最近的未访问城市。它简单高效，但通常无法找到全局最优解。",
+            ant: "蚁群算法模拟蚂蚁觅食行为。蚂蚁在路径上释放信息素，随着时间推移，较短路径上的信息素会增强，引导更多蚂蚁选择该路径。它能逐渐找到全局最优解。",
+            genetic: "遗传算法受生物进化理论启发，通过选择、交叉和变异等操作，模拟种群进化过程，不断提高解的质量。它能有效探索解空间，寻找全局最优解。",
+            annealing: "模拟退火算法模拟物理退火过程，高温时容易跳出局部最优，随着温度降低逐渐收敛到全局最优解。它能有效避免陷入局部最优解。",
+            slime: "黏菌算法模拟粘菌寻找食物的过程。粘菌会形成网络结构，优化连接食物源的路径，展现出惊人的智能。该算法能找到接近最优的解。"
+        };
+
+        // 加载覆盖层
+        const loadingOverlay = document.getElementById('loading-overlay');
+        
+        // 初始化函数
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            addEventListeners();
+            generateRandomCities(8);
+            updateCityCountDisplay(8);
+            drawCities();
+            calculateDistanceMatrix();
+        }
+        
+        // 调整canvas大小
+        function resizeCanvas() {
+            const container = document.querySelector('.visualization');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            drawCities();
+            if (bestPath.length > 0) {
+                drawPath(bestPath, true);
+            }
+            if (currentPath.length > 0 && currentPath !== bestPath) {
+                drawPath(currentPath, false);
+            }
+        }
+
+        // 添加事件监听器
+        function addEventListeners() {
+            // 城市控制
+            document.getElementById('city-count').addEventListener('input', handleCityCountChange);
+            document.getElementById('random-cities').addEventListener('click', handleRandomCities);
+            document.getElementById('clear-cities').addEventListener('click', handleClearCities);
+            
+            // 算法控制
+            document.getElementById('start-btn').addEventListener('click', handleStart);
+            document.getElementById('pause-btn').addEventListener('click', handlePause);
+            document.getElementById('reset-btn').addEventListener('click', handleReset);
+            document.getElementById('animation-speed').addEventListener('input', handleSpeedChange);
+            
+            // 算法选择
+            document.querySelectorAll('.algo-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                    currentAlgorithm = this.dataset.algo;
+                    
+                    // 显示对应的参数设置
+                    document.querySelectorAll('.algo-params').forEach(param => {
+                        param.style.display = 'none';
+                    });
+                    document.getElementById(`${currentAlgorithm}-params`).style.display = 'block';
+                    
+                    // 更新算法说明
+                    document.getElementById('algorithm-explanation').innerHTML = `<p>${algoExplanations[currentAlgorithm]}</p>`;
+                });
+            });
+            
+            // Canvas点击事件
+            canvas.addEventListener('click', handleCanvasClick);
+            
+            // 参数滑块事件
+            setupParamListeners();
+        }
+        
+        // 设置参数滑块监听器
+        function setupParamListeners() {
+            // 蚁群算法参数
+            document.getElementById('ant-count').addEventListener('input', function() {
+                const value = parseInt(this.value);
+                document.getElementById('ant-count-value').textContent = value;
+                algoParams.ant.antCount = value;
+            });
+            
+            document.getElementById('pheromone-weight').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('pheromone-weight-value').textContent = value;
+                algoParams.ant.pheromoneWeight = value;
+            });
+            
+            document.getElementById('evaporation-rate').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('evaporation-rate-value').textContent = value;
+                algoParams.ant.evaporationRate = value;
+            });
+            
+            // 遗传算法参数
+            document.getElementById('population-size').addEventListener('input', function() {
+                const value = parseInt(this.value);
+                document.getElementById('population-size-value').textContent = value;
+                algoParams.genetic.populationSize = value;
+            });
+            
+            document.getElementById('mutation-rate').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('mutation-rate-value').textContent = value;
+                algoParams.genetic.mutationRate = value;
+            });
+            
+            document.getElementById('crossover-rate').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('crossover-rate-value').textContent = value;
+                algoParams.genetic.crossoverRate = value;
+            });
+            
+            document.getElementById('max-generations').addEventListener('input', function() {
+                const value = parseInt(this.value);
+                document.getElementById('max-generations-value').textContent = value;
+                algoParams.genetic.maxGenerations = value;
+            });
+            
+            // 模拟退火参数
+            document.getElementById('initial-temperature').addEventListener('input', function() {
+                const value = parseInt(this.value);
+                document.getElementById('initial-temperature-value').textContent = value;
+                algoParams.annealing.initialTemperature = value;
+            });
+            
+            document.getElementById('cooling-rate').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('cooling-rate-value').textContent = value;
+                algoParams.annealing.coolingRate = value;
+            });
+            
+            document.getElementById('ant-max-iterations').addEventListener('input', function() {
+                const value = parseInt(this.value);
+                document.getElementById('ant-max-iterations-value').textContent = value;
+                algoParams.ant.maxIterations = value;
+            });
+            
+            // 黏菌算法参数
+            document.getElementById('slime-count').addEventListener('input', function() {
+                const value = parseInt(this.value);
+                document.getElementById('slime-count-value').textContent = value;
+                algoParams.slime.slimeCount = value;
+            });
+            
+            document.getElementById('propagation-rate').addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                document.getElementById('propagation-rate-value').textContent = value;
+                algoParams.slime.propagationRate = value;
+            });
+            
+            document.getElementById('slime-max-iterations').addEventListener('input', function() {
+                const value = parseInt(this.value);
+                document.getElementById('slime-max-iterations-value').textContent = value;
+                algoParams.slime.maxIterations = value;
+            });
+        }
+        
+        // 处理城市数量变更
+        function handleCityCountChange() {
+            const count = parseInt(this.value);
+            updateCityCountDisplay(count);
+            generateRandomCities(count);
+            calculateDistanceMatrix();
+        }
+        
+        // 更新城市数量显示
+        function updateCityCountDisplay(count) {
+            document.getElementById('city-count-value').textContent = count;
+        }
+        
+        // 处理随机生成城市
+        function handleRandomCities() {
+            const count = parseInt(document.getElementById('city-count').value);
+            generateRandomCities(count);
+            calculateDistanceMatrix();
+        }
+        
+        // 处理清除所有城市
+        function handleClearCities() {
+            cities = [];
+            bestPath = [];
+            currentPath = [];
+            bestLength = Infinity;
+            currentLength = 0;
+            updateStats();
+            drawCities();
+        }
+        
+        // 处理开始求解
+        function handleStart() {
+            if (cities.length < 3) {
+                alert('请至少添加3个城市');
+                return;
+            }
+            
+            if (isRunning && !isPaused) {
+                return;
+            }
+            
+            if (isPaused) {
+                isPaused = false;
+                document.getElementById('pause-btn').textContent = '暂停';
+                return;
+            }
+            
+            // 重置状态
+            bestPath = [];
+            currentPath = [];
+            bestLength = Infinity;
+            currentLength = 0;
+            iteration = 0;
+            
+            isRunning = true;
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('pause-btn').disabled = false;
+            document.getElementById('pause-btn').textContent = '暂停';
+            document.querySelectorAll('.algo-btn').forEach(btn => {
+                btn.disabled = true;
+            });
+            
+            statusElement.textContent = '求解中...';
+            
+            // 初始化算法特定参数
+            initAlgorithm();
+            
+            // 开始算法
+            iteration = 0; // 确保迭代计数器被重置
+            console.log(`算法开始，当前算法: ${currentAlgorithm}`);
+            if (currentAlgorithm === 'genetic') {
+                console.log(`遗传算法最大迭代次数: ${algoParams.genetic.maxGenerations}`);
+            }
+            solverInterval = setInterval(solveTSP, getIterationDelay());
+        }
+        
+        // 初始化算法参数
+        function initAlgorithm() {
+            switch (currentAlgorithm) {
+                case 'ant':
+                    initAntColony();
+                    break;
+                case 'genetic':
+                    initGeneticAlgorithm();
+                    break;
+                case 'annealing':
+                    initSimulatedAnnealing();
+                    break;
+                case 'slime':
+                    initSlimeMold();
+                    break;
+                case 'nearest':
+                    // 不需要特别初始化
+                    break;
+            }
+        }
+        
+        // 处理暂停
+        function handlePause() {
+            if (!isRunning) return;
+            
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                this.textContent = '继续';
+                statusElement.textContent = '已暂停';
+            } else {
+                this.textContent = '暂停';
+                statusElement.textContent = '求解中...';
+            }
+        }
+        
+        // 处理重置
+        function handleReset() {
+            isRunning = false;
+            isPaused = false;
+            
+            if (solverInterval) {
+                clearInterval(solverInterval);
+            }
+            
+            // 重置UI
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('pause-btn').disabled = true;
+            document.getElementById('pause-btn').textContent = '暂停';
+            document.querySelectorAll('.algo-btn').forEach(btn => {
+                btn.disabled = false;
+            });
+            
+            bestPath = [];
+            currentPath = [];
+            bestLength = Infinity;
+            currentLength = 0;
+            iteration = 0;
+            
+            statusElement.textContent = '就绪';
+            updateStats();
+            drawCities();
+        }
+        
+        // 处理速度变更
+        function handleSpeedChange() {
+            animationSpeed = parseInt(this.value);
+            document.getElementById('speed-value').textContent = animationSpeed;
+            
+            // 如果正在运行，更新间隔
+            if (isRunning && !isPaused) {
+                clearInterval(solverInterval);
+                solverInterval = setInterval(solveTSP, getIterationDelay());
+            }
+        }
+        
+        // 获取迭代延迟
+        function getIterationDelay() {
+            // 速度反转：10是最快，1是最慢
+            return (11 - animationSpeed) * 30;
+        }
+        
+        // 处理Canvas点击
+        function handleCanvasClick(e) {
+            if (isRunning) return; // 运行时不允许修改城市
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 检查是否点击了已有的城市（删除）
+            let cityIndex = -1;
+            for (let i = 0; i < cities.length; i++) {
+                const dx = cities[i][0] - x;
+                const dy = cities[i][1] - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance <= clickRadius) {
+                    cityIndex = i;
+                    break;
+                }
+            }
+            
+            if (cityIndex !== -1) {
+                // 删除城市
+                cities.splice(cityIndex, 1);
+                updateCityCountDisplay(cities.length);
+                document.getElementById('city-count').value = cities.length;
+            } else {
+                // 添加新城市
+                cities.push([x, y]);
+                updateCityCountDisplay(cities.length);
+                document.getElementById('city-count').value = cities.length;
+            }
+            
+            calculateDistanceMatrix();
+            drawCities();
+        }
+        
+        // 生成随机城市
+        function generateRandomCities(count) {
+            cities = [];
+            const padding = 50; // 边缘填充
+            
+            for (let i = 0; i < count; i++) {
+                const x = padding + Math.random() * (canvas.width - 2 * padding);
+                const y = padding + Math.random() * (canvas.height - 2 * padding);
+                cities.push([x, y]);
+            }
+            
+            // 重置路径
+            bestPath = [];
+            currentPath = [];
+            bestLength = Infinity;
+            currentLength = 0;
+            
+            drawCities();
+        }
+        
+        // 绘制城市
+        function drawCities() {
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制城市
+            for (let i = 0; i < cities.length; i++) {
+                const [x, y] = cities[i];
+                
+                // 外发光
+                ctx.beginPath();
+                ctx.arc(x, y, cityRadius + 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(5, 217, 232, 0.3)';
+                ctx.fill();
+                
+                // 城市圆圈
+                ctx.beginPath();
+                ctx.arc(x, y, cityRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#05d9e8';
+                ctx.strokeStyle = '#ff2a6d';
+                ctx.lineWidth = 2;
+                ctx.fill();
+                ctx.stroke();
+                
+                // 城市编号
+                ctx.fillStyle = '#000';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(i, x, y);
+            }
+            
+            // 绘制当前最佳路径
+            if (bestPath.length > 0) {
+                drawPath(bestPath, true);
+            }
+        }
+        
+        // 绘制路径
+        function drawPath(path, isBest) {
+            if (path.length < 2) return;
+            
+            ctx.beginPath();
+            ctx.moveTo(cities[path[0]][0], cities[path[0]][1]);
+            
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(cities[path[i]][0], cities[path[i]][1]);
+            }
+            
+            // 闭合路径
+            if (path.length === cities.length) {
+                ctx.lineTo(cities[path[0]][0], cities[path[0]][1]);
+            }
+            
+            if (isBest) {
+                ctx.strokeStyle = '#ff2a6d';
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#ff2a6d';
+                ctx.shadowBlur = 10;
+            } else {
+                ctx.strokeStyle = 'rgba(5, 217, 232, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 0;
+            }
+            
+            ctx.stroke();
+            ctx.shadowBlur = 0; // 重置阴影效果
+        }
+        
+        // 计算距离矩阵
+        let distanceMatrix = [];
+        
+        function calculateDistanceMatrix() {
+            const n = cities.length;
+            distanceMatrix = Array(n).fill().map(() => Array(n).fill(0));
+            
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    if (i !== j) {
+                        const dx = cities[i][0] - cities[j][0];
+                        const dy = cities[i][1] - cities[j][1];
+                        distanceMatrix[i][j] = Math.sqrt(dx * dx + dy * dy);
+                    }
+                }
+            }
+            
+            return distanceMatrix;
+        }
+        
+        // 计算路径长度
+        function calculatePathLength(path) {
+            if (path.length <= 1) return 0;
+            
+            let length = 0;
+            for (let i = 0; i < path.length - 1; i++) {
+                length += distanceMatrix[path[i]][path[i + 1]];
+            }
+            
+            // 添加回到起点的距离
+            if (path.length === cities.length) {
+                length += distanceMatrix[path[path.length - 1]][path[0]];
+            }
+            
+            return length;
+        }
+        
+        // 更新统计信息
+        function updateStats() {
+            iterationElement.textContent = iteration;
+            currentLengthElement.textContent = currentLength.toFixed(2);
+            bestLengthElement.textContent = (bestLength === Infinity ? "未找到" : bestLength.toFixed(2));
+        }
+        
+        // TSP求解函数
+        function solveTSP() {
+            if (isPaused) return;
+            
+            iteration++;
+            
+            // 根据当前算法选择对应的求解步骤
+            switch (currentAlgorithm) {
+                case 'nearest':
+                    nearestNeighborStep();
+                    break;
+                case 'ant':
+                    antColonyStep();
+                    break;
+                case 'genetic':
+                    geneticAlgorithmStep();
+                    break;
+                case 'annealing':
+                    simulatedAnnealingStep();
+                    break;
+                case 'slime':
+                    slimeMoldStep();
+                    break;
+            }
+            
+            // 更新统计
+            updateStats();
+            
+            // 绘制
+            drawCities();
+            if (currentPath.length > 0 && currentPath !== bestPath) {
+                drawPath(currentPath, false);
+            }
+            
+            // 检查是否完成
+            if (isAlgorithmComplete()) {
+                clearInterval(solverInterval);
+                isRunning = false;
+                statusElement.textContent = '完成';
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('pause-btn').disabled = true;
+                document.querySelectorAll('.algo-btn').forEach(btn => {
+                    btn.disabled = false;
+                });
+                console.log(`算法完成，共迭代 ${iteration} 次`);
+            }
+        }
+        
+        // 判断算法是否完成
+        function isAlgorithmComplete() {
+            switch (currentAlgorithm) {
+                case 'nearest':
+                    return currentPath.length >= cities.length;
+                case 'ant':
+                    console.log(`蚁群算法迭代: ${iteration}/${algoParams.ant.maxIterations}`);
+                    return iteration >= algoParams.ant.maxIterations;
+                case 'genetic':
+                    console.log(`遗传算法迭代: ${iteration}/${algoParams.genetic.maxGenerations}`);
+                    return iteration >= algoParams.genetic.maxGenerations;
+                case 'annealing':
+                    return algoParams.annealing.currentTemperature < 1.0;
+                case 'slime':
+                    console.log(`黏菌算法迭代: ${iteration}/${algoParams.slime.maxIterations}`);
+                    return iteration >= algoParams.slime.maxIterations;
+                default:
+                    return false;
+            }
+        }
+        
+        // -------- 最近邻算法 --------
+        function nearestNeighborStep() {
+            if (currentPath.length === 0) {
+                // 随机选择起点
+                currentPath.push(Math.floor(Math.random() * cities.length));
+            } else if (currentPath.length < cities.length) {
+                // 找到最近的未访问城市
+                const lastCity = currentPath[currentPath.length - 1];
+                let minDist = Infinity;
+                let nextCity = -1;
+                
+                for (let i = 0; i < cities.length; i++) {
+                    if (!currentPath.includes(i)) {
+                        const dist = distanceMatrix[lastCity][i];
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nextCity = i;
+                        }
+                    }
+                }
+                
+                currentPath.push(nextCity);
+            }
+            
+            // 如果路径完整，检查是否是最佳路径
+            if (currentPath.length === cities.length) {
+                currentLength = calculatePathLength(currentPath);
+                
+                if (currentLength < bestLength) {
+                    bestLength = currentLength;
+                    bestPath = [...currentPath];
+                }
+            }
+        }
+        
+        // -------- 蚁群算法 --------
+        function initAntColony() {
+            const n = cities.length;
+            
+            // 初始化信息素矩阵
+            algoParams.ant.pheromoneMatrix = Array(n).fill().map(() => Array(n).fill(0.1));
+            
+            showLoading();
+            setTimeout(() => hideLoading(), 500);
+        }
+        
+        function antColonyStep() {
+            const n = cities.length;
+            const antCount = algoParams.ant.antCount;
+            const pheromoneWeight = algoParams.ant.pheromoneWeight;
+            const evaporationRate = algoParams.ant.evaporationRate;
+            
+            // 每只蚂蚁构建一条路径
+            let antPaths = [];
+            let antPathLengths = [];
+            
+            for (let ant = 0; ant < antCount; ant++) {
+                let visited = Array(n).fill(false);
+                let path = [];
+                
+                // 随机选择起点
+                let current = Math.floor(Math.random() * n);
+                path.push(current);
+                visited[current] = true;
+                
+                // 构建路径
+                for (let i = 1; i < n; i++) {
+                    // 计算下一个城市的概率
+                    let probabilities = [];
+                    
+                    for (let j = 0; j < n; j++) {
+                        if (!visited[j]) {
+                            // 距离倒数
+                            const distance = distanceMatrix[current][j];
+                            const invDistance = 1.0 / distance;
+                            
+                            // 信息素强度
+                            const pheromone = Math.pow(algoParams.ant.pheromoneMatrix[current][j], pheromoneWeight);
+                            
+                            probabilities.push({
+                                city: j,
+                                prob: invDistance * pheromone
+                            });
+                        }
+                    }
+                    
+                    // 按概率选择下一个城市
+                    let sum = probabilities.reduce((a, b) => a + b.prob, 0);
+                    let r = Math.random() * sum;
+                    let cumulative = 0;
+                    let nextCity = -1;
+                    
+                    for (let j = 0; j < probabilities.length; j++) {
+                        cumulative += probabilities[j].prob;
+                        if (r <= cumulative) {
+                            nextCity = probabilities[j].city;
+                            break;
+                        }
+                    }
+                    
+                    if (nextCity === -1 && probabilities.length > 0) {
+                        nextCity = probabilities[0].city; // 兜底
+                    }
+                    
+                    current = nextCity;
+                    path.push(current);
+                    visited[current] = true;
+                }
+                
+                // 计算路径长度
+                let pathLength = calculatePathLength(path);
+                antPaths.push(path);
+                antPathLengths.push(pathLength);
+                
+                // 更新当前最佳路径
+                if (pathLength < bestLength) {
+                    bestLength = pathLength;
+                    bestPath = [...path];
+                }
+            }
+            
+            // 更新信息素
+            // 先蒸发
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    algoParams.ant.pheromoneMatrix[i][j] *= (1 - evaporationRate);
+                }
+            }
+            
+            // 每只蚂蚁留下信息素，路径越短信息素越多
+            for (let ant = 0; ant < antCount; ant++) {
+                const path = antPaths[ant];
+                const pathLength = antPathLengths[ant];
+                const pheromoneToAdd = 1.0 / pathLength;
+                
+                for (let i = 0; i < path.length - 1; i++) {
+                    algoParams.ant.pheromoneMatrix[path[i]][path[i+1]] += pheromoneToAdd;
+                    algoParams.ant.pheromoneMatrix[path[i+1]][path[i]] += pheromoneToAdd; // 双向加
+                }
+                
+                // 收尾相连
+                algoParams.ant.pheromoneMatrix[path[path.length-1]][path[0]] += pheromoneToAdd;
+                algoParams.ant.pheromoneMatrix[path[0]][path[path.length-1]] += pheromoneToAdd;
+            }
+            
+            // 显示当前最佳蚂蚁路径
+            currentPath = antPaths.reduce((a, b) => 
+                calculatePathLength(a) < calculatePathLength(b) ? a : b
+            );
+            currentLength = calculatePathLength(currentPath);
+        }
+        
+        // -------- 遗传算法 --------
+        function initGeneticAlgorithm() {
+            const n = cities.length;
+            const populationSize = algoParams.genetic.populationSize;
+            
+            console.log("初始化遗传算法，最大迭代次数设置为:", algoParams.genetic.maxGenerations);
+            
+            // 初始化种群
+            algoParams.genetic.population = [];
+            
+            for (let i = 0; i < populationSize; i++) {
+                // 创建随机路径
+                let path = Array.from({length: n}, (_, i) => i);
+                shuffleArray(path);
+                algoParams.genetic.population.push(path);
+            }
+            
+            showLoading();
+            setTimeout(() => hideLoading(), 500);
+        }
+        
+        function geneticAlgorithmStep() {
+            const populationSize = algoParams.genetic.populationSize;
+            const mutationRate = algoParams.genetic.mutationRate;
+            const crossoverRate = algoParams.genetic.crossoverRate;
+            const population = algoParams.genetic.population;
+            
+            // 计算种群中每个个体的适应度（路径长度倒数）
+            let fitness = population.map(path => 1.0 / calculatePathLength(path));
+            let totalFitness = fitness.reduce((a, b) => a + b, 0);
+            
+            // 找到当前最佳个体
+            let bestIndex = fitness.indexOf(Math.max(...fitness));
+            let bestIndividual = [...population[bestIndex]];
+            let bestIndividualLength = calculatePathLength(bestIndividual);
+            
+            // 更新全局最佳
+            if (bestIndividualLength < bestLength) {
+                bestLength = bestIndividualLength;
+                bestPath = [...bestIndividual];
+            }
+            
+            // 创建新一代
+            let newPopulation = [];
+            
+            // 精英保留（保留最好的个体）
+            newPopulation.push([...bestIndividual]);
+            
+            // 生成其他个体
+            while (newPopulation.length < populationSize) {
+                // 选择父母
+                let parent1 = selectIndividual(population, fitness, totalFitness);
+                let parent2 = selectIndividual(population, fitness, totalFitness);
+                
+                // 如果触发交叉条件
+                let child;
+                if (Math.random() < crossoverRate) {
+                    // 进行交叉
+                    child = crossover(parent1, parent2);
+                } else {
+                    // 否则直接复制父母
+                    child = Math.random() < 0.5 ? [...parent1] : [...parent2];
+                }
+                
+                // 变异
+                if (Math.random() < mutationRate) {
+                    mutate(child);
+                }
+                
+                newPopulation.push(child);
+            }
+            
+            // 更新种群
+            algoParams.genetic.population = newPopulation;
+            
+            // 更新当前路径为最佳个体
+            currentPath = [...bestIndividual];
+            currentLength = bestIndividualLength;
+        }
+        
+        // 选择个体
+        function selectIndividual(population, fitness, totalFitness) {
+            // 轮盘赌选择
+            let r = Math.random() * totalFitness;
+            let cumulative = 0;
+            
+            for (let i = 0; i < population.length; i++) {
+                cumulative += fitness[i];
+                if (r <= cumulative) {
+                    return population[i];
+                }
+            }
+            
+            return population[population.length - 1]; // 兜底
+        }
+        
+        // 交叉操作
+        function crossover(parent1, parent2) {
+            // 顺序交叉(OX)
+            const n = parent1.length;
+            
+            // 随机选择两个交叉点
+            const start = Math.floor(Math.random() * n);
+            const end = Math.floor(Math.random() * (n - start)) + start;
+            
+            // 创建子代
+            let child = Array(n).fill(-1);
+            
+            // 复制中间段
+            for (let i = start; i <= end; i++) {
+                child[i] = parent1[i];
+            }
+            
+            // 填充剩余位置
+            let j = (end + 1) % n;
+            for (let i = 0; i < n; i++) {
+                const pos = (end + 1 + i) % n;
+                if (child[pos] === -1) { // 位置还没填
+                    // 找下一个不在child中的parent2元素
+                    while (child.includes(parent2[j])) {
+                        j = (j + 1) % n;
+                    }
+                    child[pos] = parent2[j];
+                    j = (j + 1) % n;
+                }
+            }
+            
+            return child;
+        }
+        
+        // 变异操作
+        function mutate(path) {
+            // 两点交换变异
+            const n = path.length;
+            const i = Math.floor(Math.random() * n);
+            const j = Math.floor(Math.random() * n);
+            
+            // 交换
+            [path[i], path[j]] = [path[j], path[i]];
+            
+            return path;
+        }
+        
+        // -------- 模拟退火算法 --------
+        function initSimulatedAnnealing() {
+            // 生成初始解（随机路径）
+            let initialPath = Array.from({length: cities.length}, (_, i) => i);
+            shuffleArray(initialPath);
+            
+            currentPath = [...initialPath];
+            currentLength = calculatePathLength(currentPath);
+            bestPath = [...currentPath];
+            bestLength = currentLength;
+            
+            // 初始化温度
+            algoParams.annealing.currentTemperature = algoParams.annealing.initialTemperature;
+            
+            showLoading();
+            setTimeout(() => hideLoading(), 500);
+        }
+        
+        function simulatedAnnealingStep() {
+            const currentTemp = algoParams.annealing.currentTemperature;
+            const coolingRate = algoParams.annealing.coolingRate;
+            
+            // 生成邻居解（通过交换两个城市）
+            let newPath = [...currentPath];
+            const i = Math.floor(Math.random() * cities.length);
+            let j = Math.floor(Math.random() * cities.length);
+            while (i === j) {
+                j = Math.floor(Math.random() * cities.length);
+            }
+            
+            // 交换
+            [newPath[i], newPath[j]] = [newPath[j], newPath[i]];
+            const newLength = calculatePathLength(newPath);
+            
+            // 计算接受概率
+            let acceptProb = 1.0;
+            if (newLength > currentLength) {
+                acceptProb = Math.exp((currentLength - newLength) / currentTemp);
+            }
+            
+            // 决定是否接受新解
+            if (Math.random() < acceptProb) {
+                currentPath = [...newPath];
+                currentLength = newLength;
+                
+                // 如果是新的最优解
+                if (currentLength < bestLength) {
+                    bestPath = [...currentPath];
+                    bestLength = currentLength;
+                }
+            }
+            
+            // 降温
+            algoParams.annealing.currentTemperature *= coolingRate;
+        }
+        
+        // -------- 黏菌算法 --------
+        function initSlimeMold() {
+            const n = cities.length;
+            const slimeCount = algoParams.slime.slimeCount;
+            
+            // 初始化粘菌
+            algoParams.slime.slimeMolds = [];
+            
+            for (let i = 0; i < slimeCount; i++) {
+                // 创建随机路径
+                let path = Array.from({length: n}, (_, i) => i);
+                shuffleArray(path);
+                
+                algoParams.slime.slimeMolds.push({
+                    path: path,
+                    length: calculatePathLength(path),
+                    vein: Array(n).fill().map(() => Array(n).fill(0.1)) // 管状结构
+                });
+            }
+            
+            // 找到最佳粘菌
+            let bestSlime = algoParams.slime.slimeMolds.reduce((a, b) => a.length < b.length ? a : b);
+            currentPath = [...bestSlime.path];
+            currentLength = bestSlime.length;
+            
+            if (currentLength < bestLength) {
+                bestLength = currentLength;
+                bestPath = [...currentPath];
+            }
+            
+            showLoading();
+            setTimeout(() => hideLoading(), 500);
+        }
+        
+        function slimeMoldStep() {
+            const slimeMolds = algoParams.slime.slimeMolds;
+            const propagationRate = algoParams.slime.propagationRate;
+            
+            // 每个粘菌扩展
+            for (let i = 0; i < slimeMolds.length; i++) {
+                const slime = slimeMolds[i];
+                
+                // 传播管状结构（局部搜索）
+                if (Math.random() < propagationRate) {
+                    // 随机选择两个位置交换
+                    let newPath = [...slime.path];
+                    const a = Math.floor(Math.random() * cities.length);
+                    const b = Math.floor(Math.random() * cities.length);
+                    [newPath[a], newPath[b]] = [newPath[b], newPath[a]];
+                    
+                    // 计算新路径长度
+                    const newLength = calculatePathLength(newPath);
+                    
+                    // 如果更好则更新
+                    if (newLength < slime.length) {
+                        slime.path = newPath;
+                        slime.length = newLength;
+                        
+                        // 增强路径上的管状结构
+                        for (let j = 0; j < newPath.length - 1; j++) {
+                            slime.vein[newPath[j]][newPath[j+1]] += 0.1;
+                            slime.vein[newPath[j+1]][newPath[j]] += 0.1;
+                        }
+                        slime.vein[newPath[newPath.length-1]][newPath[0]] += 0.1;
+                        slime.vein[newPath[0]][newPath[newPath.length-1]] += 0.1;
+                    }
+                }
+                
+                // 根据其他粘菌的路径调整自己（全局搜索）
+                for (let j = 0; j < slimeMolds.length; j++) {
+                    if (i !== j && slimeMolds[j].length < slime.length) {
+                        // 有一定概率学习其他更好的粘菌
+                        if (Math.random() < 0.3) {
+                            // 两条路径交叉
+                            let newPath = crossover(slime.path, slimeMolds[j].path);
+                            let newLength = calculatePathLength(newPath);
+                            
+                            if (newLength < slime.length) {
+                                slime.path = newPath;
+                                slime.length = newLength;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 找到最佳粘菌
+            let bestSlime = slimeMolds.reduce((a, b) => a.length < b.length ? a : b);
+            currentPath = [...bestSlime.path];
+            currentLength = bestSlime.length;
+            
+            if (currentLength < bestLength) {
+                bestLength = currentLength;
+                bestPath = [...currentPath];
+            }
+        }
+        
+        // 辅助函数：数组洗牌
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        // 显示/隐藏加载覆盖层
+        function showLoading() {
+            loadingOverlay.classList.add('visible');
+        }
+        
+        function hideLoading() {
+            loadingOverlay.classList.remove('visible');
+        }
+        
+        // 初始化
+        init();
+    </script>
+</body>
+</html>

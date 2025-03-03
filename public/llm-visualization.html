@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>大语言模型工作原理可视化</title>
+    <style>
+      :root {
+        --primary-color: #0088ff;
+        --secondary-color: #11f0e6;
+        --bg-color: #0a0a14;
+        --input-color: #11f0e6;
+        --attention-color: #0088FF;
+        --params-color: #ffcc00;
+        --output-color: #44ff44;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        font-family: "Courier New", monospace;
+        color: var(--secondary-color);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+      }
+
+      .app-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        height: 100vh;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+      h1 {
+        color: var(--primary-color);
+        text-shadow: 0 0 10px hsla(312, 93%, 57%, 0.7);
+        margin-bottom: 10px;
+        font-size: 2.2rem;
+        width: 100%;
+        text-align: center;
+      }
+
+      .main-content {
+        display: flex;
+        width: 100%;
+        height: calc(100%);
+        justify-content: space-between;
+      }
+
+      .visualization-container {
+        position: relative;
+        flex: 1;
+        height: 100%;
+        border: 1px solid var(--secondary-color);
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        overflow: hidden;
+      }
+
+      .sidebar {
+        width: 500px;
+        height: 100%;
+        margin-left: 10px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+
+      .progress-indicator {
+        position: absolute;
+        top: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80%;
+        height: 4px;
+        background-color: rgba(255, 255, 255, 0.1);
+        z-index: 5;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background-color: var(--primary-color);
+        width: 0%;
+        transition: width 0.2s;
+      }
+
+      .progress-marker {
+        position: absolute;
+        top: -15px;
+        transform: translateX(-50%);
+        color: white;
+        font-size: 12px;
+      }
+
+      .stage-indicator {
+        position: absolute;
+        top: 30px;
+        width: 100%;
+        text-align: center;
+        color: white;
+        font-size: 16px;
+        z-index: 6;
+        text-shadow: 0 0 10px rgba(0, 136, 255, 0.5);
+      }
+
+      .explanation-panel {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        width: calc(100% - 20px);
+        background-color: rgba(10, 10, 20, 0.9);
+        border: 1px solid var(--secondary-color);
+        padding: 15px;
+        font-size: 16px;
+        color: white;
+        z-index: 10;
+        text-align: left;
+        box-shadow: 0 0 15px rgba(17, 240, 230, 0.3);
+        max-height: 140px;
+        overflow-y: auto;
+      }
+
+      .explanation-title {
+        color: var(--primary-color);
+        font-weight: bold;
+        margin-bottom: 8px;
+        font-size: 18px;
+      }
+
+      .tooltip {
+        position: absolute;
+        background-color: rgba(10, 10, 20, 0.9);
+        border: 1px solid var(--primary-color);
+        padding: 8px 12px;
+        color: white;
+        font-size: 14px;
+        pointer-events: none;
+        z-index: 20;
+        display: none;
+        max-width: 250px;
+        box-shadow: 0 0 10px rgba(0, 136, 255, 0.5);
+        line-height: 1.4;
+      }
+
+      /* 添加额外可视化的样式 */
+      .attention-matrix-popup {
+        position: absolute;
+        top: 80px;
+        right: 20px;
+        background-color: rgba(10, 10, 20, 0.85);
+        border: 1px solid var(--attention-color);
+        padding: 10px;
+        color: white;
+        z-index: 25;
+        display: none;
+        max-width: 300px;
+        box-shadow: 0 0 15px rgba(0, 136, 255, 0.5);
+        font-size: 0.8rem;
+      }
+
+      .knowledge-popup {
+        position: absolute;
+        top: 80px;
+        right: 20px;
+        background-color: rgba(10, 10, 20, 0.85);
+        border: 1px solid var(--params-color);
+        padding: 10px;
+        color: white;
+        z-index: 25;
+        display: none;
+        max-width: 300px;
+        box-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
+        font-size: 0.8rem;
+      }
+
+      .terminal {
+        flex: 1;
+        background-color: rgba(0, 0, 0, 0.8);
+        border: 1px solid var(--secondary-color);
+        color: var(--secondary-color);
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        padding: 10px;
+        overflow-y: auto;
+        position: relative;
+        margin-bottom: 10px;
+      }
+
+      .terminal-line {
+        margin: 3px 0;
+        display: flex;
+      }
+
+      .terminal-prompt {
+        color: var(--primary-color);
+        margin-right: 8px;
+      }
+
+      .terminal-content {
+        flex: 1;
+      }
+
+      .terminal-cursor {
+        display: inline-block;
+        width: 8px;
+        height: 14px;
+        background-color: var(--secondary-color);
+        animation: blink 1s infinite;
+        vertical-align: middle;
+        margin-left: 2px;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+
+      .controls-section {
+        background-color: rgba(10, 10, 20, 0.8);
+        border: 1px solid var(--secondary-color);
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      .main-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      button {
+        background-color: transparent;
+        color: var(--primary-color);
+        border: 1px solid var(--primary-color);
+        padding: 8px 15px;
+        cursor: pointer;
+        font-family: "Courier New", monospace;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 10px rgba(0, 136, 255, 0.3);
+      }
+
+      button:hover {
+        background-color: rgba(0, 136, 255, 0.2);
+        box-shadow: 0 0 15px rgba(0, 136, 255, 0.5);
+      }
+
+      button.active {
+        background-color: rgba(0, 136, 255, 0.3);
+        box-shadow: 0 0 15px rgba(0, 136, 255, 0.7);
+      }
+
+      .step-buttons {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .step-button {
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      .speed-control {
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .speed-control label {
+        margin-right: 10px;
+        color: var(--secondary-color);
+      }
+
+      .speed-control input {
+        width: 200px;
+      }
+
+      .key-point {
+        color: var(--primary-color);
+        font-weight: bold;
+      }
+
+      .step-highlight {
+        color: var(--params-color);
+        font-weight: bold;
+      }
+
+      /* 响应式设计 */
+      @media screen and (max-width: 1600px) {
+        .app-container {
+          max-width: 1400px;
+        }
+
+        .explanation-panel {
+          max-height: 120px;
+          font-size: 14px;
+        }
+
+        .explanation-title {
+          font-size: 16px;
+        }
+
+        .bottom-section {
+          height: 130px;
+        }
+      }
+
+      @media screen and (max-width: 1200px) {
+        .app-container {
+          max-width: 1000px;
+          padding: 10px;
+        }
+
+        h1 {
+          font-size: 1.8rem;
+        }
+
+        .explanation-panel {
+          max-height: 100px;
+          font-size: 12px;
+        }
+
+        .explanation-title {
+          font-size: 14px;
+        }
+
+        .bottom-section {
+          height: 120px;
+        }
+
+        .terminal {
+          font-size: 11px;
+        }
+
+        button {
+          padding: 6px 12px;
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <div class="main-content">
+        <div class="visualization-container">
+          <canvas id="llmCanvas"></canvas>
+          <div class="progress-indicator">
+            <div class="progress-bar" id="progressBar"></div>
+            <div class="progress-marker" style="left: 25%">分词</div>
+            <div class="progress-marker" style="left: 50%">注意力</div>
+            <div class="progress-marker" style="left: 75%">生成</div>
+          </div>
+          <div
+            class="stage-indicator"
+            id="stageIndicator"
+            style="padding-top: 20px"
+          >
+            准备开始
+          </div>
+
+          <!-- 注意力矩阵可视化弹窗 -->
+          <div class="attention-matrix-popup" id="attentionMatrixPopup">
+            <h3 style="color: #f72cce; margin-top: 0">
+              注意力矩阵 - 词语关系强度
+            </h3>
+            <table
+              style="
+                width: 100%;
+                text-align: center;
+                border-collapse: collapse;
+                margin: 10px 0;
+              "
+            >
+              <tr>
+                <td></td>
+                <td style="color: #f72cce">今</td>
+                <td style="color: #f72cce">天</td>
+                <td style="color: #f72cce">天</td>
+                <td style="color: #f72cce">气</td>
+                <td style="color: #f72cce">真</td>
+                <td style="color: #f72cce">好</td>
+              </tr>
+              <tr>
+                <td style="color: #f72cce">今</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">-</td>
+                <td style="background: rgba(247, 44, 206, 0.7)">0.75</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.22</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.18</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">0.12</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">0.09</td>
+              </tr>
+              <tr>
+                <td style="color: #f72cce">天</td>
+                <td style="background: rgba(247, 44, 206, 0.7)">0.71</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">-</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.25</td>
+                <td style="background: rgba(247, 44, 206, 0.3)">0.31</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">0.14</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.19</td>
+              </tr>
+              <tr>
+                <td style="color: #f72cce">天</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.24</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.23</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">-</td>
+                <td style="background: rgba(247, 44, 206, 0.8)">0.79</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.22</td>
+                <td style="background: rgba(247, 44, 206, 0.4)">0.41</td>
+              </tr>
+              <tr>
+                <td style="color: #f72cce">气</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">0.15</td>
+                <td style="background: rgba(247, 44, 206, 0.3)">0.33</td>
+                <td style="background: rgba(247, 44, 206, 0.8)">0.76</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">-</td>
+                <td style="background: rgba(247, 44, 206, 0.3)">0.35</td>
+                <td style="background: rgba(247, 44, 206, 0.8)">0.82</td>
+              </tr>
+              <tr>
+                <td style="color: #f72cce">真</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">0.11</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">0.12</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.24</td>
+                <td style="background: rgba(247, 44, 206, 0.4)">0.38</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">-</td>
+                <td style="background: rgba(247, 44, 206, 0.7)">0.67</td>
+              </tr>
+              <tr>
+                <td style="color: #f72cce">好</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">0.08</td>
+                <td style="background: rgba(247, 44, 206, 0.2)">0.21</td>
+                <td style="background: rgba(247, 44, 206, 0.4)">0.44</td>
+                <td style="background: rgba(247, 44, 206, 0.8)">0.80</td>
+                <td style="background: rgba(247, 44, 206, 0.7)">0.65</td>
+                <td style="background: rgba(247, 44, 206, 0.1)">-</td>
+              </tr>
+            </table>
+            <p style="font-size: 12px; margin: 0">
+              注意力矩阵显示每对词之间的关联强度（0-1之间）<br />颜色越深代表关联越强
+            </p>
+          </div>
+
+          <!-- 参数知识库可视化弹窗 -->
+          <div class="knowledge-popup" id="knowledgePopup">
+            <h3 style="color: #ffcc00; margin-top: 0">
+              模型参数知识库 - 处理"天气好"
+            </h3>
+            <div style="margin: 10px 0; font-size: 14px">
+              <div style="margin-bottom: 10px">
+                <span style="color: #ffcc00; font-weight: bold"
+                  >⬤ 浅层参数（语法处理）:</span
+                >
+                <ul style="margin: 5px 0; padding-left: 20px">
+                  <li>"天气"是名词，主题成分</li>
+                  <li>"好"是形容词，用于描述天气</li>
+                  <li>句式是陈述句，表达正面评价</li>
+                </ul>
+              </div>
+              <div style="margin-bottom: 10px">
+                <span style="color: #ffcc00; font-weight: bold"
+                  >⬤ 中层参数（语义理解）:</span
+                >
+                <ul style="margin: 5px 0; padding-left: 20px">
+                  <li>"天气好"表达积极情绪，满意度高</li>
+                  <li>通常与"阳光"、"明媚"、"晴朗"相关</li>
+                  <li>此类表述常引起肯定回应，表示认同</li>
+                </ul>
+              </div>
+              <div>
+                <span style="color: #ffcc00; font-weight: bold"
+                  >⬤ 深层参数（推理判断）:</span
+                >
+                <ul style="margin: 5px 0; padding-left: 20px">
+                  <li>应以肯定开始回复（"是的"）</li>
+                  <li>补充具体描述，使回复更自然</li>
+                  <li>选择"阳光明媚"作为最合适的天气描述</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="explanation-panel" id="explanationPanel">
+            <div class="explanation-title" id="explanationTitle">
+              大语言模型工作原理
+            </div>
+            <div id="explanationContent">
+              大语言模型通过分析输入文本，利用预训练的参数和注意力机制生成回复。
+              点击"开始动画"按钮，我们将逐步展示完整过程。
+            </div>
+          </div>
+          <div class="tooltip" id="tooltip"></div>
+        </div>
+
+        <div class="sidebar">
+          <div class="terminal" id="terminal">
+            <div class="terminal-line">
+              <span class="terminal-prompt">root@LLM-Quantum-7:~$</span>
+              <span class="terminal-content">llm visualization:</span>
+            </div>
+            <div class="terminal-line">
+              <span class="terminal-prompt">>></span>
+              <span class="terminal-content" id="current-log"
+                >准备就绪，等待执行</span
+              >
+              <span class="terminal-cursor"></span>
+            </div>
+          </div>
+
+          <div class="controls-section">
+            <div class="main-buttons">
+              <button id="startBtn">开始动画</button>
+              <button id="restartBtn">重新开始</button>
+            </div>
+            <div class="step-buttons">
+              <button class="step-button" data-step="1">1.分词阶段</button>
+              <button class="step-button" data-step="2">2.注意力计算</button>
+              <button class="step-button" data-step="3">3.模型参数</button>
+              <button class="step-button" data-step="4">4.生成输出</button>
+              <button class="step-button" data-step="0">全过程</button>
+            </div>
+            <div class="speed-control">
+              <label for="speedSlider">动画速度:</label>
+              <input type="range" id="speedSlider" min="1" max="10" value="5" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 获取当前窗口大小
+      function getWindowSize() {
+        return {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        };
+      }
+
+      // 调整画布大小
+      function resizeCanvas() {
+        const container = document.querySelector(".visualization-container");
+        const canvas = document.getElementById("llmCanvas");
+
+        // 获取容器的大小
+        const containerRect = container.getBoundingClientRect();
+
+        // 设置画布大小
+        canvas.width = containerRect.width;
+        canvas.height = containerRect.height;
+
+        // 如果已经初始化，重新绘制
+        if (typeof draw === "function") {
+          draw();
+        }
+      }
+
+      // 窗口大小调整时重新计算
+      window.addEventListener("resize", resizeCanvas);
+
+      const canvas = document.getElementById("llmCanvas");
+      const ctx = canvas.getContext("2d");
+      const terminal = document.getElementById("terminal");
+      const currentLog = document.getElementById("current-log");
+      const stepButtons = document.querySelectorAll(".step-button");
+      const progressBar = document.getElementById("progressBar");
+      const explanationPanel = document.getElementById("explanationPanel");
+      const explanationTitle = document.getElementById("explanationTitle");
+      const explanationContent = document.getElementById("explanationContent");
+      const tooltip = document.getElementById("tooltip");
+      const stageIndicator = document.getElementById("stageIndicator");
+      const speedSlider = document.getElementById("speedSlider");
+
+      // 全局变量
+      let animationId;
+      let isPaused = true;
+      let progress = 0;
+      let currentStep = 0; // 0表示自动完整过程，1-4表示特定阶段
+      let baseSpeed = 0.0008; // 基础速度，非常慢
+      let speedMultiplier = 0.5; // 速度倍数，从滑块获取
+      let grid = [];
+      let tokens = [];
+      let outputs = [];
+      let neurons = [];
+      let connections = [];
+      let inputText = "今天天气真好";
+      let outputText = "是的，阳光明媚";
+      let logHistory = [];
+      const maxLogHistory = 30; // 增加日志数量
+      let autoStart = false;
+      let explanations = {};
+      let detailedMode = true; // 默认开启详细说明
+
+      // 微解释计时器
+      let microExplanationTimer = null;
+      let microExplanationQueue = [];
+
+      // 步骤范围定义
+      const stepRanges = [
+        { start: 0, end: 1 }, // 全过程
+        { start: 0, end: 0.25 }, // 分词阶段
+        { start: 0.25, end: 0.5 }, // 注意力阶段
+        { start: 0.5, end: 0.75 }, // 参数阶段
+        { start: 0.75, end: 1 }, // 输出阶段
+      ];
+
+      // 阶段说明 - 更详细的解释
+      const stageExplanations = {
+        // 分词阶段
+        tokenization: {
+          title: "1. 分词阶段 - 将文本转换为机器可理解的单元",
+          content:
+            "大语言模型不直接处理原始文字，而是将文本分解成'标记'(tokens)。在中文中，通常一个汉字就是一个token，" +
+            "而在英文中，可能是单词或单词的一部分。例如'today'可能是一个token，但'playing'可能被分解为'play'和'ing'两个token。\n\n" +
+            "每个token被转换为高维向量（通常是几百到几千维的数值数组），这一过程称为嵌入(embedding)。这些向量捕捉了词语的语义信息，" +
+            "使得语义相近的词在向量空间中距离较近。比如'开心'和'快乐'的向量会比'开心'和'伤心'的向量更相似。\n\n" +
+            "这种数字化表示让模型能够进行数学运算，这是理解和生成语言的基础。",
+        },
+        // 注意力机制
+        attention: {
+          title: "2. 注意力机制 - 理解词语间的关联与上下文",
+          content:
+            "注意力机制是大语言模型的核心创新，通过计算每一对token之间的关联强度，让模型理解上下文。\n\n" +
+            "具体工作过程：\n" +
+            "① 计算关联分数：对于'今天天气真好'，模型会计算15个关联分数（每个字与其他所有字的关系）\n" +
+            "② 生成注意力矩阵：例如'天气'和'好'的关联度为0.82（很强），而'天气'和'今'的关联度只有0.25（较弱）\n" +
+            "③ 多头注意力：同时进行多组不同类型的关联计算，一组可能关注语法关系，另一组关注语义相似度\n" +
+            "④ 信息加权：关联度高的词对之间信息流动更多，例如'好'会更多地参考'天气'的信息\n\n" +
+            "类比理解：就像阅读时，你会特别注意与当前词相关的其他词，如读到'好'时，你会联想到它描述的是'天气'。",
+        },
+        // 模型参数处理
+        parameters: {
+          title: "3. 模型参数处理 - 应用海量学习知识",
+          content:
+            "模型参数实际上是存储在神经网络中的具体知识与规则，组织为多层处理网络。\n\n" +
+            "具体内容和工作过程：\n" +
+            "① 知识类型：参数存储了语法规则（'好'是形容词）、语义关联（'好天气'与哪些词常见）、事实知识（天气相关概念）和回复模板\n" +
+            "② 层级组织：浅层处理基础语法 → 中层理解语义含义 → 深层进行逻辑推理\n" +
+            "③ 知识检索：输入'天气好'会激活参数网络中的相关知识节点，如'阳光''明媚''晴朗''心情好'等关联概念\n" +
+            "④ 推理过程：模型通过参数进行判断，如'这是关于天气的正面评价，应以肯定开始回复，补充具体描述'\n\n" +
+            "类比理解：参数就像模型的'知识图谱'，当接收到输入时，模型在这个知识图谱中查找最相关的信息，从简单到复杂逐层处理。",
+        },
+        // 输出生成
+        generation: {
+          title: "4. 输出生成 - 逐词生成连贯回复",
+          content:
+            "生成阶段是模型一个接一个地预测并生成单词的过程。模型不是一次性生成整个回答，而是像人类思考一样，一步步推理。\n\n" +
+            "具体来说，模型会计算词汇表中每个可能的下一个词的概率分布（通常包含几万到几十万个候选词）。它可以选择概率最高的词（贪婪解码），" +
+            "或通过采样引入一些随机性（温度采样），避免回答过于刻板。\n\n" +
+            "每生成一个新词，这个词会立即加入上下文，影响后续词的生成。这种自回归（autoregressive）特性让模型能产生连贯的长文本。" +
+            "生成过程会持续到模型认为回答完成（如生成结束标记），或达到预设的最大长度。模型可能需要进行成百上千次的这种单词预测。",
+        },
+        // 总体解释
+        overview: {
+          title: "大语言模型如何工作 - 从输入到输出的完整流程",
+          content:
+            "大语言模型（LLM）是一种基于Transformer架构的人工智能系统，通过分析海量文本学习语言规律和知识。" +
+            "当我们向它提问时，模型会经历四个关键阶段处理信息：\n\n" +
+            "1. 分词：将输入文本转换为标记(tokens)和数字向量\n" +
+            "2. 注意力计算：分析词语之间的关系和重要性\n" +
+            "3. 参数处理：应用预训练知识理解和分析文本\n" +
+            "4. 生成：一个词一个词地创建回复\n\n" +
+            "整个过程依赖数十亿到数万亿参数，这些参数存储了模型从训练数据中学到的语言规律和世界知识。" +
+            "模型的强大能力来自于这些参数与注意力机制的结合，使它能理解复杂上下文并生成人类般的回复。",
+        },
+      };
+
+      // 更详细的元素提示说明
+      const tooltipTexts = {
+        inputNeuron:
+          "输入神经元：接收经过分词处理的文本标记(token)。每个标记被转换为高维向量（数百到数千维的数值数组），捕捉词语的语义特征。这些向量是模型处理的实际数据。",
+        attentionNeuron:
+          "注意力神经元：实现'自注意力'机制，计算不同词之间的关联程度。\n\n具体工作：\n1. 每个注意力神经元计算所有输入token对之间的相关性分数\n2. 生成注意力权重矩阵（例如'天气'与'好'关联度0.82，与'真'关联度0.35）\n3. 对输入信息进行加权，决定哪些信息更重要\n\n类比：就像人在阅读时，会特别关注与当前词相关的其他词，而忽略不那么重要的词。",
+        paramNeuron:
+          "参数神经元：实际存储模型学到的知识。\n\n具体内容：\n1. 语法规则（如'好'是形容词）\n2. 语义关联（'天气好'与'阳光明媚'相关）\n3. 事实知识（天气相关概念）\n4. 回复模板（对好天气的常见描述）\n\n类比：相当于模型的'大脑'，储存了从数十亿文本中学到的规律，这些知识被编码为数值，分布在不同神经元中，并按处理层级组织（从浅层语法到深层语义）。",
+        outputNeuron:
+          "输出神经元：计算词汇表中每个可能词的出现概率。模型通常有几万到几十万个候选词。神经元的激活强度表示该词被选为下一个词的可能性。最终选择概率最高的词（或通过采样引入一些随机性），然后将这个词添加到上下文中，继续预测下一个词。",
+        inputToken:
+          "输入标记(token)：文本的基本处理单元，通常是单个字符、单词或词的一部分。分词器将原始文本分解成这些标记，作为模型的输入。在中文中，通常一个汉字就是一个token。每个token都有一个唯一的ID，并被转换为高维向量用于计算。",
+        outputToken:
+          "输出标记(token)：模型生成的回复中的单个单元。模型每次只预测一个token，然后将其添加到当前上下文，再基于更新后的上下文预测下一个token。这种逐个生成的方式让模型能够创建连贯的、上下文相关的长回复。",
+        attentionConnection:
+          "注意力连接：表示不同token之间的关联强度，通过数值衡量（0到1之间，越大关联越强）。\n\n例如：\n- '天气'和'好'的关联度：0.82（很强）\n- '天气'和'真'的关联度：0.35（中等）\n- '今天'和'好'的关联度：0.19（较弱）\n\n注意力机制会建立所有token对之间的关联矩阵，形成完整的上下文理解网络。连接亮度越高表示关联越强。",
+        paramConnection:
+          "参数连接：将输入文本与模型知识库连接起来。\n\n具体过程：\n1. 检索相关知识 - 如'天气好'会激活与天气相关的语义知识\n2. 多层处理 - 从基础语法到深层语义逐层分析\n3. 应用规则 - 使用语法规则正确组织句子\n4. 检索关联概念 - 找出'天气好'通常与哪些描述词关联（如'阳光'）\n\n这些连接就像是在模型的'知识图谱'中查找与当前输入最相关的信息。",
+      };
+
+      // 详细的微解释文本
+      const microExplanations = {
+        tokenization_start:
+          "分词开始：模型首先将输入文本'今天天气真好'分解为单个字符token",
+        tokenization_process:
+          "分词过程：每个字符被转换为数字ID，然后映射为高维向量（嵌入）",
+        tokenization_complete:
+          "分词完成：所有输入文本已被转换为向量表示，准备进入处理流程",
+
+        attention_start:
+          "注意力机制开始：模型计算每个token与其他所有token的关联度",
+        attention_context:
+          "上下文分析：注意力机制帮助模型理解'天气'和'好'的关联，即'好'是描述'天气'的",
+        attention_multihead:
+          "多头注意力：模型同时从多个不同角度理解文本关系，如语法关系、语义关系等",
+        attention_weights:
+          "注意力权重：关联度强的token对之间形成更亮的连接，表示更强的关联性",
+
+        param_start: "参数处理开始：应用预训练知识理解输入文本的含义和意图",
+        param_knowledge:
+          "知识应用：模型知道'天气好'通常与'阳光''明媚''晴朗'等概念相关",
+        param_layers: "深层特征：多层神经网络逐层提取更抽象的特征和关系",
+        param_reasoning:
+          "逻辑推理：模型推断出回应中应肯定天气好的说法，并提供相关的具体描述",
+
+        generation_start: "生成阶段开始：模型准备一个词一个词地创建回复",
+        generation_first:
+          "首词生成：模型从词汇表中选择概率最高的第一个词'是'，表示肯定陈述",
+        generation_context:
+          "上下文更新：每生成一个词，立即加入上下文，影响后续词的生成",
+        generation_coherence:
+          "保持连贯：模型通过自回归方式确保整个回复在语法和语义上连贯一致",
+        generation_complete:
+          "生成完成：最终完整回复'是的，阳光明媚'表达了对天气好的认同和具体描述",
+      };
+
+      // 颜色
+      const colors = {
+        background: "#0a0a14",
+        grid: "rgba(17, 240, 230, 0.15)",
+        inputToken: "#11f0e6",
+        attention: "#f72cce",
+        modelParams: "#ffcc00",
+        output: "#44ff44",
+        neuronGlow: "rgba(255, 255, 255, 0.1)",
+      };
+
+      // 初始化画布大小
+      function initCanvasSize() {
+        resizeCanvas();
+      }
+
+      // 获取当前速度
+      function getCurrentSpeed() {
+        return baseSpeed * speedMultiplier;
+      }
+
+      // 处理速度变化
+      speedSlider.addEventListener("input", function () {
+        speedMultiplier = this.value / 10; // 1-10 范围映射到 0.1-1
+      });
+
+      // 添加微解释到队列
+      function addMicroExplanation(key) {
+        if (microExplanations[key]) {
+          microExplanationQueue.push(microExplanations[key]);
+          processMicroExplanationQueue();
+        }
+      }
+
+      // 处理微解释队列
+      function processMicroExplanationQueue() {
+        if (
+          microExplanationTimer === null &&
+          microExplanationQueue.length > 0
+        ) {
+          const explanation = microExplanationQueue.shift();
+          addLog(explanation);
+          microExplanationTimer = setTimeout(() => {
+            microExplanationTimer = null;
+            if (microExplanationQueue.length > 0) {
+              processMicroExplanationQueue();
+            }
+          }, 4000); // 每4秒显示一条微解释
+        }
+      }
+
+      // 设置提示
+      function showTooltip(text, x, y) {
+        tooltip.innerHTML = text; // 使用innerHTML以支持富文本
+        tooltip.style.left = `${x}px`;
+        tooltip.style.top = `${y}px`;
+        tooltip.style.display = "block";
+      }
+
+      function hideTooltip() {
+        tooltip.style.display = "none";
+      }
+
+      // 更新进度条
+      function updateProgressBar() {
+        progressBar.style.width = `${progress * 100}%`;
+
+        // 更新阶段指示器
+        if (progress < 0.25) {
+          stageIndicator.textContent =
+            "当前阶段：分词处理 - 将文本转换为模型可理解的形式";
+          stageIndicator.style.color = colors.inputToken;
+        } else if (progress < 0.5) {
+          stageIndicator.textContent =
+            "当前阶段：注意力计算 - 分析词语间的关系与重要性";
+          stageIndicator.style.color = colors.attention;
+        } else if (progress < 0.75) {
+          stageIndicator.textContent =
+            "当前阶段：模型参数处理 - 应用预训练知识理解文本";
+          stageIndicator.style.color = colors.modelParams;
+        } else {
+          stageIndicator.textContent = "当前阶段：输出生成 - 逐词创建连贯回复";
+          stageIndicator.style.color = colors.output;
+        }
+      }
+
+      // 更新解释面板
+      function updateExplanation() {
+        if (progress < 0.25) {
+          explanationTitle.textContent = stageExplanations.tokenization.title;
+          explanationContent.textContent =
+            stageExplanations.tokenization.content;
+        } else if (progress < 0.5) {
+          explanationTitle.textContent = stageExplanations.attention.title;
+          explanationContent.textContent = stageExplanations.attention.content;
+        } else if (progress < 0.75) {
+          explanationTitle.textContent = stageExplanations.parameters.title;
+          explanationContent.textContent = stageExplanations.parameters.content;
+        } else {
+          explanationTitle.textContent = stageExplanations.generation.title;
+          explanationContent.textContent = stageExplanations.generation.content;
+        }
+      }
+
+      // 添加日志
+      function addLog(message) {
+        // 为关键术语添加高亮
+        const highlightedMessage = message.replace(
+          /(token|注意力|参数|向量|嵌入|神经网络|自回归|多头注意力)/g,
+          '<span class="key-point">$1</span>'
+        );
+
+        logHistory.push({
+          time: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+          message: highlightedMessage,
+        });
+
+        if (logHistory.length > maxLogHistory) {
+          logHistory.shift();
+        }
+
+        // 更新当前日志
+        currentLog.innerHTML = highlightedMessage;
+
+        // 清除终端并重新显示所有日志
+        while (terminal.children.length > 2) {
+          terminal.removeChild(terminal.children[0]);
+        }
+
+        // 添加历史日志
+        for (let i = logHistory.length - 1; i >= 0; i--) {
+          const log = logHistory[i];
+          const logLine = document.createElement("div");
+          logLine.className = "terminal-line";
+
+          const prompt = document.createElement("span");
+          prompt.className = "terminal-prompt";
+          prompt.textContent = `[${log.time}]`;
+
+          const content = document.createElement("span");
+          content.className = "terminal-content";
+          content.innerHTML = log.message;
+
+          logLine.appendChild(prompt);
+          logLine.appendChild(content);
+
+          // 在第二个元素之前插入
+          terminal.insertBefore(logLine, terminal.children[0]);
+        }
+
+        // 滚动到底部
+        terminal.scrollTop = terminal.scrollHeight;
+      }
+
+      // 初始化网格
+      function initGrid() {
+        const gridSize = 25;
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        grid = [];
+
+        for (let x = 0; x < canvasWidth; x += gridSize) {
+          for (let y = 0; y < canvasHeight; y += gridSize) {
+            grid.push({
+              x,
+              y,
+              opacity: Math.random() * 0.5 + 0.1,
+            });
+          }
+        }
+        addLog(
+          "系统初始化：创建计算网格背景，代表大语言模型的高维数学空间，每个点代表一个潜在的计算节点"
+        );
+      }
+
+      // 初始化神经元节点
+      function initNeurons() {
+        neurons = [];
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        // 计算位置比例
+        const inputX = canvasWidth * 0.15;
+        const attentionX = canvasWidth * 0.35;
+        const paramsX = canvasWidth * 0.55;
+        const outputX = canvasWidth * 0.75;
+
+        const startY = canvasHeight * 0.25;
+        const inputHeight = canvasHeight * 0.5;
+        const attentionHeight = canvasHeight * 0.6;
+        const paramsHeight = canvasHeight * 0.7;
+        const outputHeight = canvasHeight * 0.5;
+
+        // 输入层神经元
+        for (let i = 0; i < 6; i++) {
+          neurons.push({
+            x: inputX,
+            y: startY + i * (inputHeight / 5),
+            radius: 8,
+            type: "input",
+            active: false,
+            color: colors.inputToken,
+            text: i < inputText.length ? inputText[i] : "",
+            tooltip: tooltipTexts.inputNeuron,
+          });
+        }
+
+        // 隐藏层1（注意力层）
+        for (let i = 0; i < 15; i++) {
+          neurons.push({
+            x: attentionX,
+            y: startY * 0.8 + i * (attentionHeight / 14),
+            radius: 5,
+            type: "attention",
+            active: false,
+            color: colors.attention,
+            tooltip: tooltipTexts.attentionNeuron,
+          });
+        }
+
+        // 隐藏层2（参数层）
+        for (let i = 0; i < 25; i++) {
+          neurons.push({
+            x: paramsX,
+            y: startY * 0.6 + i * (paramsHeight / 24),
+            radius: 4,
+            type: "params",
+            active: false,
+            color: colors.modelParams,
+            tooltip: tooltipTexts.paramNeuron,
+          });
+        }
+
+        // 输出层神经元
+        for (let i = 0; i < 8; i++) {
+          neurons.push({
+            x: outputX,
+            y: startY + i * (outputHeight / 7),
+            radius: 8,
+            type: "output",
+            active: false,
+            color: colors.output,
+            text: i < outputText.length ? outputText[i] : "",
+            tooltip: tooltipTexts.outputNeuron,
+          });
+        }
+
+        // 创建连接
+        createConnections();
+        addLog(
+          "神经网络结构初始化：建立模拟大语言模型的四层结构 - <span class='step-highlight'>输入层</span>(蓝色)接收文本、<span class='step-highlight'>注意力层</span>(粉色)分析关系、<span class='step-highlight'>参数层</span>(黄色)应用知识、<span class='step-highlight'>输出层</span>(绿色)生成回复"
+        );
+      }
+
+      // 创建神经元之间的连接
+      function createConnections() {
+        connections = [];
+
+        // 根据神经元类型筛选
+        const inputNeurons = neurons.filter((n) => n.type === "input");
+        const attentionNeurons = neurons.filter((n) => n.type === "attention");
+        const paramsNeurons = neurons.filter((n) => n.type === "params");
+        const outputNeurons = neurons.filter((n) => n.type === "output");
+
+        // 输入到注意力层的连接
+        for (const input of inputNeurons) {
+          for (const attention of attentionNeurons) {
+            if (Math.random() > 0.7) {
+              connections.push({
+                from: input,
+                to: attention,
+                active: false,
+                progress: 0,
+                color: colors.inputToken,
+                speed: Math.random() * 0.004 + 0.001, // 减慢连接速度
+                tooltip: tooltipTexts.attentionConnection,
+              });
+            }
+          }
+        }
+
+        // 注意力层到参数层的连接
+        for (const attention of attentionNeurons) {
+          for (const param of paramsNeurons) {
+            if (Math.random() > 0.8) {
+              connections.push({
+                from: attention,
+                to: param,
+                active: false,
+                progress: 0,
+                color: colors.attention,
+                speed: Math.random() * 0.004 + 0.001, // 减慢连接速度
+                tooltip: tooltipTexts.paramConnection,
+              });
+            }
+          }
+        }
+
+        // 参数层到输出层的连接
+        for (const param of paramsNeurons) {
+          for (const output of outputNeurons) {
+            if (Math.random() > 0.85) {
+              connections.push({
+                from: param,
+                to: output,
+                active: false,
+                progress: 0,
+                color: colors.modelParams,
+                speed: Math.random() * 0.004 + 0.001, // 减慢连接速度
+                tooltip: tooltipTexts.paramConnection,
+              });
+            }
+          }
+        }
+        addLog(
+          "神经连接建立：创建层间信息传递通道，代表大语言模型中的数据流向。在真实模型中，这些连接数量达到数十亿甚至更多"
+        );
+      }
+
+      // 初始化令牌
+      function initTokens() {
+        tokens = [];
+
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const inputNeurons = neurons.filter((n) => n.type === "input");
+
+        // 输入令牌
+        for (let i = 0; i < inputText.length; i++) {
+          if (inputNeurons[i]) {
+            tokens.push({
+              char: inputText[i],
+              x: canvasWidth * 0.05,
+              y: inputNeurons[i].y,
+              opacity: 0,
+              isInput: true,
+              targetX: inputNeurons[i].x,
+              tooltip: tooltipTexts.inputToken,
+            });
+          }
+        }
+        addLog(
+          "准备输入文本：'" +
+            inputText +
+            "' - 这段文字将通过分词器转换为标记序列，每个字符成为一个<span class='key-point'>token</span>，并映射到高维向量空间"
+        );
+      }
+
+      // 绘制背景和网格
+      function drawBackground() {
+        ctx.fillStyle = colors.background;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 绘制网格
+        ctx.strokeStyle = colors.grid;
+        grid.forEach((point) => {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 1, 0, Math.PI * 2);
+          ctx.globalAlpha =
+            point.opacity * (0.5 + Math.sin(progress * 5) * 0.2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        });
+
+        // 绘制标题
+        ctx.textAlign = "center";
+
+        // 绘制各个组件标题
+        ctx.font = "18px 'Courier New'";
+        ctx.fillStyle = colors.inputToken;
+        ctx.fillText("输入文本", canvas.width * 0.15, canvas.height * 0.15);
+
+        ctx.fillStyle = colors.attention;
+        ctx.fillText("注意力层", canvas.width * 0.35, canvas.height * 0.15);
+
+        ctx.fillStyle = colors.modelParams;
+        ctx.fillText("模型参数", canvas.width * 0.55, canvas.height * 0.15);
+
+        ctx.fillStyle = colors.output;
+        ctx.fillText("生成文本", canvas.width * 0.75, canvas.height * 0.15);
+      }
+
+      // 检测鼠标悬停
+      canvas.addEventListener("mousemove", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        // 检查是否悬停在神经元上
+        let hoveredElement = null;
+
+        // 检查神经元
+        for (const neuron of neurons) {
+          const distance = Math.sqrt(
+            Math.pow(x - neuron.x, 2) + Math.pow(y - neuron.y, 2)
+          );
+          if (distance <= neuron.radius * 2) {
+            hoveredElement = neuron;
+            break;
+          }
+        }
+
+        // 检查令牌
+        if (!hoveredElement) {
+          for (const token of [...tokens, ...outputs]) {
+            if (
+              token.opacity > 0.5 &&
+              x >= token.x - 15 &&
+              x <= token.x + 15 &&
+              y >= token.y - 15 &&
+              y <= token.y + 15
+            ) {
+              hoveredElement = token;
+              break;
+            }
+          }
+        }
+
+        // 显示或隐藏提示
+        if (hoveredElement && hoveredElement.tooltip) {
+          showTooltip(hoveredElement.tooltip, x + 20, y);
+        } else {
+          // 检查连接线（简化版）
+          let hoveredConnection = null;
+          for (const conn of connections) {
+            if (!conn.active) continue;
+
+            // 简单的线段检测（不够精确但够用）
+            const distToLine = distanceToLine(
+              x,
+              y,
+              conn.from.x,
+              conn.from.y,
+              conn.to.x,
+              conn.to.y
+            );
+            if (distToLine < 10) {
+              hoveredConnection = conn;
+              break;
+            }
+          }
+
+          if (hoveredConnection && hoveredConnection.tooltip) {
+            showTooltip(hoveredConnection.tooltip, x + 20, y);
+          } else {
+            hideTooltip();
+          }
+        }
+      });
+
+      canvas.addEventListener("mouseout", () => {
+        hideTooltip();
+      });
+
+      // 计算点到线的距离（辅助函数）
+      function distanceToLine(x, y, x1, y1, x2, y2) {
+        const A = x - x1;
+        const B = y - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+
+        const dot = A * C + B * D;
+        const len_sq = C * C + D * D;
+        let param = -1;
+
+        if (len_sq != 0) {
+          param = dot / len_sq;
+        }
+
+        let xx, yy;
+
+        if (param < 0) {
+          xx = x1;
+          yy = y1;
+        } else if (param > 1) {
+          xx = x2;
+          yy = y2;
+        } else {
+          xx = x1 + param * C;
+          yy = y1 + param * D;
+        }
+
+        const dx = x - xx;
+        const dy = y - yy;
+
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      // 绘制令牌
+      function drawTokens(currentProgress) {
+        ctx.font = "16px 'Courier New'";
+        ctx.textAlign = "center";
+
+        tokens.forEach((token, index) => {
+          if (currentProgress > index * 0.05) {
+            token.opacity = Math.min(1, (currentProgress - index * 0.05) * 20);
+
+            // 移动到目标位置
+            if (token.x < token.targetX) {
+              token.x += (token.targetX - token.x) * 0.03; // 减慢移动速度
+              if (Math.abs(token.x - token.targetX) < 1 && !token.logged) {
+                addLog(
+                  `分词处理：输入文本 '${token.char}' 被转换为<span class='key-point'>token</span>并映射为高维向量。在数学空间中，每个token是一个包含数百个数值的数组，捕捉词语含义`
+                );
+                token.logged = true;
+
+                // 添加额外的微解释
+                if (index === 0) {
+                  addMicroExplanation("tokenization_start");
+                } else if (index === 2) {
+                  addMicroExplanation("tokenization_process");
+                } else if (index === inputText.length - 1) {
+                  addMicroExplanation("tokenization_complete");
+                  setTimeout(() => {
+                    if (currentProgress < 0.25) {
+                      addLog(
+                        "分词过程完成：所有输入文本已转换为向量表示。这些向量捕捉了每个词的语义信息，相似含义的词在向量空间中距离更近"
+                      );
+                    }
+                  }, 3000);
+                }
+              }
+            }
+          }
+
+          ctx.fillStyle = token.isInput ? colors.inputToken : colors.output;
+          ctx.globalAlpha = token.opacity;
+
+          // 绘制令牌背景
+          ctx.beginPath();
+          ctx.roundRect(token.x - 15, token.y - 15, 30, 30, 5);
+          ctx.fill();
+
+          // 绘制文本
+          ctx.fillStyle = "#000";
+          ctx.fillText(token.char, token.x, token.y + 5);
+          ctx.globalAlpha = 1;
+        });
+      }
+
+      // 绘制连接和激活传播
+      function drawConnectionsAndActivations(currentProgress) {
+        // 激活输入神经元
+        if (currentProgress > 0.1) {
+          let activatedThisFrame = false;
+          neurons
+            .filter((n) => n.type === "input")
+            .forEach((neuron, i) => {
+              if (
+                currentProgress > 0.1 + i * 0.03 &&
+                !neuron.wasActive &&
+                neuron.text
+              ) {
+                neuron.active = true;
+                neuron.wasActive = true;
+                activatedThisFrame = true;
+                addLog(
+                  `输入处理：'${neuron.text}' 字符已被转换为<span class='key-point'>向量</span>形式并激活输入神经元。这个向量含有该字符的语义信息，将传递到<span class='key-point'>注意力层</span>进行上下文分析`
+                );
+              }
+            });
+        }
+
+        // 注意力层激活记录
+        if (
+          currentProgress > 0.25 &&
+          currentProgress < 0.27 &&
+          !window.attentionLogDone
+        ) {
+          window.attentionLogDone = true;
+          addLog(
+            "<span class='step-highlight'>注意力机制开始：</span>模型计算每个token与其他所有token的关联度，形成<span class='key-point'>注意力矩阵</span>。这就像人在阅读时关注重要词语并理解它们之间的关系"
+          );
+
+          // 添加微解释
+          addMicroExplanation("attention_start");
+
+          // 添加注意力矩阵可视化
+          showAttentionMatrixVisualization();
+
+          setTimeout(() => {
+            if (currentProgress >= 0.25 && currentProgress < 0.5) {
+              addLog(
+                "注意力计算具体过程：当分析'天气真好'时，模型计算每个词对其他词的关注度。例如'好'与'天气'的关联分数很高（0.82），而与'真'的关联较低（0.35）"
+              );
+
+              // 高亮显示特定连接
+              highlightAttentionConnections();
+
+              addMicroExplanation("attention_context");
+            }
+          }, 5000);
+
+          setTimeout(() => {
+            if (currentProgress >= 0.25 && currentProgress < 0.5) {
+              addLog(
+                "<span class='key-point'>多头注意力机制</span>工作方式：同时计算多组不同类型的关联。例如一组关注语法关系（动词-主语），另一组关注语义相似度（'好天气'和'晴朗'）"
+              );
+              addMicroExplanation("attention_multihead");
+            }
+          }, 10000);
+
+          setTimeout(() => {
+            if (currentProgress >= 0.25 && currentProgress < 0.5) {
+              addLog(
+                "注意力权重实际应用：'天气'获得最高注意力权重，它的信息被更多地传递到下一层。这就像人类在阅读'今天天气真好'时，会特别关注核心名词'天气'"
+              );
+              addMicroExplanation("attention_weights");
+            }
+          }, 15000);
+        }
+
+        // 参数层激活记录
+        if (
+          currentProgress > 0.5 &&
+          currentProgress < 0.52 &&
+          !window.paramsLogDone
+        ) {
+          window.paramsLogDone = true;
+          addLog(
+            "<span class='step-highlight'>模型参数处理开始：</span>模型参数就像一个巨大的知识库，存储了从训练数据中学到的语言规律、事实和逻辑关系"
+          );
+
+          // 添加参数知识库可视化
+          showParameterKnowledgeVisualization();
+
+          // 添加微解释
+          addMicroExplanation("param_start");
+
+          setTimeout(() => {
+            if (currentProgress >= 0.5 && currentProgress < 0.75) {
+              addLog(
+                "知识应用实例：当处理'天气好'时，模型从参数中提取相关知识：(1)好天气通常与阳光、明媚相关 (2)描述天气通常用肯定回应 (3)一般跟随具体描述"
+              );
+
+              // 显示知识检索过程
+              showKnowledgeRetrieval();
+
+              addMicroExplanation("param_knowledge");
+            }
+          }, 5000);
+
+          setTimeout(() => {
+            if (currentProgress >= 0.5 && currentProgress < 0.75) {
+              addLog(
+                "<span class='key-point'>参数处理过程</span>：输入先经过浅层参数处理基本语法(识别'好'是形容词)，然后中层参数理解语义('天气好'是积极评价)，最后深层参数进行推理(应当认同并补充描述)"
+              );
+
+              // 显示多层处理效果
+              showMultiLayerProcessing();
+
+              addMicroExplanation("param_layers");
+            }
+          }, 10000);
+
+          setTimeout(() => {
+            if (currentProgress >= 0.5 && currentProgress < 0.75) {
+              addLog(
+                "参数推理示例：模型通过参数网络进行如下推理：(1)输入是关于天气的正面评价 (2)适合以肯定开始回复 (3)可以补充'阳光明媚'来具体描述好天气"
+              );
+              addMicroExplanation("param_reasoning");
+            }
+          }, 15000);
+        }
+
+        // 添加注意力矩阵可视化功能
+        function showAttentionMatrixVisualization() {
+          // 在画布上绘制简化的注意力矩阵
+          if (!window.attentionMatrixShown) {
+            window.attentionMatrixShown = true;
+
+            // 获取输入神经元
+            const inputNeurons = neurons.filter(
+              (n) => n.type === "input" && n.text
+            );
+
+            // 如果有足够的输入神经元，创建注意力矩阵可视化
+            if (inputNeurons.length >= 2) {
+              // 创建注意力矩阵连接线
+              for (let i = 0; i < inputNeurons.length; i++) {
+                for (let j = 0; j < inputNeurons.length; j++) {
+                  if (i !== j) {
+                    // 设置不同强度的连接
+                    let strength = 0.3; // 默认强度
+
+                    // 特殊情况：'天气'和'好'的连接强度更高
+                    if (
+                      (inputNeurons[i].text === "天" &&
+                        inputNeurons[j].text === "好") ||
+                      (inputNeurons[i].text === "好" &&
+                        inputNeurons[j].text === "天")
+                    ) {
+                      strength = 0.8;
+                    }
+
+                    // 创建注意力连接
+                    connections.push({
+                      from: inputNeurons[i],
+                      to: inputNeurons[j],
+                      active: true,
+                      progress: Math.random(),
+                      color: colors.attention,
+                      speed: Math.random() * 0.002 + 0.001,
+                      opacity: strength,
+                      isAttentionLink: true,
+                      strength: strength,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // 高亮显示特定注意力连接
+        function highlightAttentionConnections() {
+          // 获取特定的连接并提高它们的可见度
+          connections.forEach((conn) => {
+            if (conn.isAttentionLink) {
+              // 找到'天'和'好'之间的连接
+              if (
+                (conn.from.text === "天" && conn.to.text === "好") ||
+                (conn.from.text === "好" && conn.to.text === "天")
+              ) {
+                conn.color = "#ff00ff"; // 更鲜艳的颜色
+                conn.opacity = 1;
+                // 添加高亮标签
+                conn.label = "0.82"; // 关联度分数
+              }
+            }
+          });
+        }
+
+        // 显示参数知识库可视化
+        function showParameterKnowledgeVisualization() {
+          if (!window.paramVisualizationShown) {
+            window.paramVisualizationShown = true;
+
+            // 获取参数神经元和输入神经元
+            const paramNeurons = neurons.filter((n) => n.type === "params");
+            const inputNeurons = neurons.filter(
+              (n) => n.type === "input" && n.text
+            );
+
+            // 为部分参数神经元添加标签
+            if (paramNeurons.length > 5) {
+              paramNeurons[0].knowledgeLabel = "语法规则";
+              paramNeurons[1].knowledgeLabel = "天气相关词";
+              paramNeurons[2].knowledgeLabel = "情感分析";
+              paramNeurons[3].knowledgeLabel = "回复模板";
+              paramNeurons[4].knowledgeLabel = "事实知识";
+
+              // 为相关的输入神经元和参数神经元创建特殊连接
+              for (const input of inputNeurons) {
+                if (
+                  input.text === "天" ||
+                  input.text === "气" ||
+                  input.text === "好"
+                ) {
+                  for (let i = 0; i < 5; i++) {
+                    connections.push({
+                      from: input,
+                      to: paramNeurons[i],
+                      active: true,
+                      progress: Math.random(),
+                      color: colors.modelParams,
+                      speed: Math.random() * 0.003 + 0.001,
+                      isKnowledgeLink: true,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // 显示知识检索过程
+        function showKnowledgeRetrieval() {
+          // 获取参数神经元
+          const paramNeurons = neurons.filter(
+            (n) => n.type === "params" && n.knowledgeLabel
+          );
+
+          // 为特定参数神经元添加知识内容
+          if (paramNeurons.length > 0) {
+            paramNeurons.forEach((neuron) => {
+              if (neuron.knowledgeLabel === "天气相关词") {
+                neuron.knowledgeContent = ["阳光", "明媚", "晴朗", "温暖"];
+                neuron.color = "#ffaa00"; // 特殊颜色
+              } else if (neuron.knowledgeLabel === "情感分析") {
+                neuron.knowledgeContent = ["正面评价", "积极情绪"];
+                neuron.color = "#ffaa00";
+              } else if (neuron.knowledgeLabel === "回复模板") {
+                neuron.knowledgeContent = ["肯定回应", "补充描述"];
+                neuron.color = "#ffaa00";
+              }
+            });
+          }
+        }
+
+        // 显示多层处理效果
+        function showMultiLayerProcessing() {
+          // 获取参数神经元并按位置分层
+          const paramNeurons = neurons.filter((n) => n.type === "params");
+
+          if (paramNeurons.length > 15) {
+            // 前1/3作为浅层
+            for (let i = 0; i < 5; i++) {
+              paramNeurons[i].layer = "浅层：语法处理";
+              paramNeurons[i].color = "#ffe066";
+            }
+
+            // 中间1/3作为中层
+            for (let i = 5; i < 15; i++) {
+              paramNeurons[i].layer = "中层：语义理解";
+              paramNeurons[i].color = "#ffcc00";
+            }
+
+            // 后1/3作为深层
+            for (let i = 15; i < paramNeurons.length; i++) {
+              paramNeurons[i].layer = "深层：逻辑推理";
+              paramNeurons[i].color = "#ff9900";
+            }
+          }
+        }
+
+        // 输出层解释
+        if (
+          currentProgress > 0.75 &&
+          currentProgress < 0.77 &&
+          !window.outputExplainDone
+        ) {
+          window.outputExplainDone = true;
+          addLog(
+            "<span class='step-highlight'>输出生成过程开始：</span>模型不是一次生成整个回答，而是一个接一个地预测最可能的下一个词。这种<span class='key-point'>自回归</span>方式让回复具有连贯性"
+          );
+
+          // 添加微解释
+          addMicroExplanation("generation_start");
+        }
+
+        // 绘制连接
+        let activeConnections = 0;
+        connections.forEach((connection) => {
+          // 检查起始节点是否激活
+          if (connection.from.active && currentProgress > 0.2) {
+            connection.active = true;
+            activeConnections++;
+          }
+
+          // 绘制激活的连接
+          if (connection.active) {
+            // 更新进度
+            connection.progress += connection.speed * speedMultiplier;
+            if (connection.progress > 1) {
+              connection.progress = 0;
+              if (!connection.to.active) {
+                connection.to.active = true;
+                // 如果是输出神经元被激活，记录日志
+                if (
+                  connection.to.type === "output" &&
+                  connection.to.text &&
+                  !connection.to.logged
+                ) {
+                  connection.to.logged = true;
+                  addLog(
+                    `输出预测：模型基于上下文和参数分析，预测 '${connection.to.text}' 是最合理的下一个词。这是从词汇表中数万个候选词中选择的概率最高的词`
+                  );
+
+                  // 添加特定的生成微解释
+                  if (connection.to.text === "是") {
+                    addMicroExplanation("generation_first");
+                  } else if (connection.to.text === "的") {
+                    addMicroExplanation("generation_context");
+                  } else if (connection.to.text === "明") {
+                    addMicroExplanation("generation_coherence");
+                  } else if (connection.to.text === "媚") {
+                    addMicroExplanation("generation_complete");
+                  }
+                } else if (
+                  connection.to.type === "attention" &&
+                  !window.firstAttentionLog
+                ) {
+                  window.firstAttentionLog = true;
+                  addLog(
+                    "注意力神经元激活：开始分析各词之间的关系强度。<span class='key-point'>注意力神经元</span>计算每个输入token对其他token的影响权重，形成完整的上下文理解"
+                  );
+                } else if (
+                  connection.to.type === "params" &&
+                  !window.firstParamLog
+                ) {
+                  window.firstParamLog = true;
+                  addLog(
+                    "参数神经元激活：应用模型学习到的语言知识。这些<span class='key-point'>参数</span>存储了语法规则、世界常识、概念关联等信息，是模型'智能'的核心"
+                  );
+                }
+              }
+            }
+
+            // 绘制连接线
+            ctx.strokeStyle = connection.color;
+            ctx.lineWidth = 1;
+
+            // 使用连接的自定义透明度（如果有）
+            if (connection.opacity !== undefined) {
+              ctx.globalAlpha = connection.opacity;
+            } else {
+              ctx.globalAlpha = 0.3;
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(connection.from.x, connection.from.y);
+            ctx.lineTo(connection.to.x, connection.to.y);
+            ctx.stroke();
+
+            // 绘制移动的点
+            const x =
+              connection.from.x +
+              (connection.to.x - connection.from.x) * connection.progress;
+            const y =
+              connection.from.y +
+              (connection.to.y - connection.from.y) * connection.progress;
+
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = connection.color;
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 如果是注意力连接，且有标签，显示关联度分数
+            if (
+              connection.isAttentionLink &&
+              connection.label &&
+              currentProgress > 0.3 &&
+              currentProgress < 0.5
+            ) {
+              const midX = (connection.from.x + connection.to.x) / 2;
+              const midY = (connection.from.y + connection.to.y) / 2;
+
+              // 绘制标签背景
+              ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+              ctx.beginPath();
+              ctx.roundRect(midX - 15, midY - 10, 30, 20, 5);
+              ctx.fill();
+
+              // 绘制标签文本
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "bold 12px 'Courier New'";
+              ctx.textAlign = "center";
+              ctx.fillText(connection.label, midX, midY + 4);
+            }
+
+            // 如果是知识连接，添加特殊效果
+            if (
+              connection.isKnowledgeLink &&
+              currentProgress > 0.52 &&
+              currentProgress < 0.7
+            ) {
+              // 绘制一个更大的点，表示知识流动
+              ctx.globalAlpha = 0.7;
+              ctx.fillStyle = "#ffdd00";
+              ctx.beginPath();
+              ctx.arc(x, y, 3, 0, Math.PI * 2);
+              ctx.fill();
+
+              // 添加发光效果
+              ctx.globalAlpha = 0.3;
+              ctx.beginPath();
+              ctx.arc(x, y, 5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        });
+
+        // 添加输出令牌
+        if (currentProgress > 0.7) {
+          const outputNeurons = neurons.filter((n) => n.type === "output");
+          for (let i = 0; i < outputText.length; i++) {
+            const neuron = outputNeurons[i];
+            if (
+              neuron &&
+              currentProgress > 0.7 + i * 0.03 &&
+              !outputs.some((o) => o.index === i)
+            ) {
+              // 将0.05改为0.03，减小每个字符生成的进度间隔
+              outputs.push({
+                char: outputText[i],
+                x: neuron.x + 25,
+                y: neuron.y,
+                opacity: 0,
+                targetX: neuron.x + 50 + 50 * (canvas.width / 1000),
+                index: i,
+                tooltip: tooltipTexts.outputToken,
+              });
+            }
+          }
+        }
+
+        // 更新和绘制输出令牌
+        outputs.forEach((output) => {
+          output.opacity = Math.min(1, output.opacity + 0.02);
+
+          // 移动到目标位置
+          if (output.x < output.targetX) {
+            output.x += (output.targetX - output.x) * 0.03; // 减慢移动速度
+            if (Math.abs(output.x - output.targetX) < 1 && !output.logged) {
+              addLog(
+                `生成输出：添加词语 '${output.char}' 到回复中。这个新生成的<span class='key-point'>token</span>立即成为上下文的一部分，影响后续token的预测`
+              );
+              output.logged = true;
+            }
+          }
+
+          ctx.fillStyle = colors.output;
+          ctx.globalAlpha = output.opacity;
+
+          // 绘制令牌背景
+          ctx.beginPath();
+          ctx.roundRect(output.x - 15, output.y - 15, 30, 30, 5);
+          ctx.fill();
+
+          // 绘制文本
+          ctx.fillStyle = "#000";
+          ctx.fillText(output.char, output.x, output.y + 5);
+          ctx.globalAlpha = 1;
+        });
+
+        // 检查是否完成所有输出
+        if (
+          currentProgress > 0.95 &&
+          outputs.length === outputText.length &&
+          !window.completionLogDone
+        ) {
+          window.completionLogDone = true;
+          addLog(
+            `生成完成：最终输出 '${outputText}' 已生成。在实际模型中，这个过程会持续数百次到数千次，直到生成完整的回复或达到长度限制`
+          );
+
+          if (currentStep === 0) {
+            setTimeout(() => {
+              addLog(
+                "<span class='step-highlight'>完整工作流程回顾：</span>分词（将文本转换为token）→注意力计算（分析词语关系）→参数处理（应用语言知识）→逐词生成输出（创建回复）"
+              );
+            }, 5000);
+
+            setTimeout(() => {
+              addLog(
+                "大语言模型核心机制：通过数万亿参数存储知识，用注意力机制理解上下文，通过自回归方式生成回复。这种设计使模型能理解复杂语言并生成连贯文本"
+              );
+            }, 10000);
+          }
+        }
+      }
+
+      // 绘制神经元
+      function drawNeurons() {
+        neurons.forEach((neuron) => {
+          // 绘制基础神经元
+          ctx.fillStyle = neuron.color;
+          ctx.globalAlpha = neuron.active ? 1 : 0.3;
+
+          // 绘制发光效果
+          if (neuron.active) {
+            ctx.beginPath();
+            const glow = neuron.radius * (1.5 + Math.sin(progress * 10) * 0.5);
+            ctx.arc(neuron.x, neuron.y, glow, 0, Math.PI * 2);
+            ctx.fillStyle = neuron.color;
+            ctx.globalAlpha = 0.2;
+            ctx.fill();
+          }
+
+          // 绘制主体
+          ctx.beginPath();
+          ctx.arc(neuron.x, neuron.y, neuron.radius, 0, Math.PI * 2);
+          ctx.fillStyle = neuron.color;
+          ctx.globalAlpha = neuron.active ? 1 : 0.3;
+          ctx.fill();
+
+          // 如果有文本，则显示
+          if (neuron.text) {
+            ctx.fillStyle = "#000";
+            ctx.font = "12px 'Courier New'";
+            ctx.textAlign = "center";
+            ctx.fillText(neuron.text, neuron.x, neuron.y + 4);
+          }
+
+          // 显示参数知识标签
+          if (
+            neuron.knowledgeLabel &&
+            neuron.active &&
+            progress > 0.52 &&
+            progress < 0.7
+          ) {
+            // 计算文本位置
+            const baseYOffset = neuron.radius + 5;
+            const labelYPos = neuron.y - baseYOffset;
+            const contentYPos1 = labelYPos - 16; // 第一行内容位置
+            const contentYPos2 = contentYPos1 - 12; // 第二行内容位置
+
+            // 首先绘制背景增强可读性
+            if (neuron.knowledgeContent && neuron.knowledgeContent.length > 0) {
+              ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+              ctx.beginPath();
+              ctx.roundRect(
+                neuron.x - 60,
+                contentYPos2 - 10,
+                120,
+                Math.abs(contentYPos2 - labelYPos) + 15,
+                5
+              );
+              ctx.fill();
+            }
+
+            // 绘制知识标签（白色文字）
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "10px 'Courier New'";
+            ctx.textAlign = "center";
+            ctx.fillText(neuron.knowledgeLabel, neuron.x, labelYPos);
+
+            // 绘制知识内容（黄色文字）
+            if (neuron.knowledgeContent && neuron.knowledgeContent.length > 0) {
+              ctx.fillStyle = "#ffff00";
+              ctx.font = "9px 'Courier New'";
+
+              // 显示第一行内容
+              ctx.fillText(neuron.knowledgeContent[0], neuron.x, contentYPos1);
+
+              // 显示第二行内容（如果有）
+              if (neuron.knowledgeContent.length > 1) {
+                ctx.fillText(
+                  neuron.knowledgeContent[1],
+                  neuron.x,
+                  contentYPos2
+                );
+              }
+            }
+          }
+
+          // 显示参数处理层次
+          if (
+            neuron.layer &&
+            neuron.active &&
+            progress > 0.55 &&
+            progress < 0.7
+          ) {
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "9px 'Courier New'";
+            ctx.textAlign = "center";
+
+            // 在神经元上方显示层次标签
+            ctx.fillText(neuron.layer, neuron.x, neuron.y + neuron.radius + 12);
+          }
+
+          ctx.globalAlpha = 1;
+        });
+      }
+
+      // 绘制函数
+      function draw() {
+        drawBackground();
+        drawConnectionsAndActivations(progress);
+        drawNeurons();
+        drawTokens(progress);
+
+        // 在注意力阶段显示注意力矩阵弹窗
+        const attentionMatrixPopup = document.getElementById(
+          "attentionMatrixPopup"
+        );
+        if (attentionMatrixPopup) {
+          if (progress > 0.3 && progress < 0.5) {
+            attentionMatrixPopup.style.display = "block";
+          } else {
+            attentionMatrixPopup.style.display = "none";
+          }
+        }
+
+        // 在参数处理阶段显示知识库弹窗
+        const knowledgePopup = document.getElementById("knowledgePopup");
+        if (knowledgePopup) {
+          if (progress > 0.55 && progress < 0.7) {
+            knowledgePopup.style.display = "block";
+          } else {
+            knowledgePopup.style.display = "none";
+          }
+        }
+      }
+
+      // 动画循环
+      function animate() {
+        // 更新进度（只有在非暂停状态下）
+        if (!isPaused) {
+          // 获取当前速度
+          const currentSpeed = getCurrentSpeed();
+
+          // 如果是特定步骤模式
+          if (currentStep > 0) {
+            const { start, end } = stepRanges[currentStep];
+            progress += currentSpeed;
+
+            // 循环在当前步骤范围内
+            if (progress > end) {
+              progress = start;
+            }
+          } else {
+            // 完整模式，检查是否已达到结束点
+            if (progress < 1) {
+              progress += currentSpeed;
+
+              // 确保所有输出都已生成后才结束动画
+              if (
+                progress >= 1 ||
+                (progress > 0.95 && outputs.length === outputText.length)
+              ) {
+                progress = 1;
+                isPaused = true;
+
+                // 显示完成提示
+                addLog(
+                  "<span class='step-highlight'>动画播放完成</span>：您可以点击\"重新开始\"重置动画，或选择特定阶段查看。将鼠标悬停在元素上可查看更多解释。"
+                );
+
+                // 更新按钮文本
+                document.getElementById("startBtn").textContent = "重新播放";
+
+                // 更新阶段指示器
+                stageIndicator.textContent =
+                  "动画播放完成 - 可点击按钮重新开始";
+                stageIndicator.style.color = "#ffffff";
+              }
+            }
+          }
+
+          // 更新进度条
+          updateProgressBar();
+
+          // 更新解释面板
+          updateExplanation();
+        }
+
+        // 绘制当前帧（无论是否暂停都要绘制）
+        draw();
+
+        // 继续动画循环
+        animationId = requestAnimationFrame(animate);
+      }
+
+      // 重置状态以便重播
+      function resetForReplay() {
+        // 重置神经元和连接的激活状态
+        neurons.forEach((neuron) => {
+          neuron.active = false;
+          neuron.wasActive = false;
+          neuron.logged = false;
+        });
+
+        connections.forEach((conn) => {
+          conn.active = false;
+          conn.progress = 0;
+        });
+
+        // 清空输出令牌
+        outputs = [];
+
+        // 重置令牌位置
+        tokens.forEach((token) => {
+          token.x = canvas.width * 0.05;
+          token.opacity = 0;
+          token.logged = false;
+        });
+
+        // 重置日志标记
+        window.attentionLogDone = false;
+        window.paramsLogDone = false;
+        window.outputExplainDone = false;
+        window.completionLogDone = false;
+        window.firstAttentionLog = false;
+        window.firstParamLog = false;
+
+        // 清空微解释队列
+        microExplanationQueue = [];
+        if (microExplanationTimer) {
+          clearTimeout(microExplanationTimer);
+          microExplanationTimer = null;
+        }
+
+        // 添加重播日志
+        addLog(
+          "<span class='step-highlight'>重新开始演示：</span>展示大语言模型完整工作流程。模型以输入文本'今天天气真好'为例，将演示如何生成回复'是的，阳光明媚'"
+        );
+      }
+
+      // 初始化和启动
+      function init() {
+        initCanvasSize();
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        grid = [];
+        tokens = [];
+        outputs = [];
+        neurons = [];
+        connections = [];
+        progress = 0;
+        logHistory = [];
+        isPaused = true;
+        window.attentionLogDone = false;
+        window.paramsLogDone = false;
+        window.outputExplainDone = false;
+        window.completionLogDone = false;
+        window.firstAttentionLog = false;
+        window.firstParamLog = false;
+
+        // 清空微解释队列
+        microExplanationQueue = [];
+        if (microExplanationTimer) {
+          clearTimeout(microExplanationTimer);
+          microExplanationTimer = null;
+        }
+
+        // 初始解释
+        explanationTitle.textContent = stageExplanations.overview.title;
+        explanationContent.textContent = stageExplanations.overview.content;
+
+        addLog(
+          "<span class='step-highlight'>大语言模型可视化系统已初始化：</span>准备展示LLM如何从输入文本'今天天气真好'生成回复'是的，阳光明媚'"
+        );
+
+        initGrid();
+        initNeurons();
+        initTokens();
+
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+
+        // 设置活动状态
+        stepButtons.forEach((btn) => {
+          btn.classList.remove("active");
+          if (parseInt(btn.dataset.step) === currentStep) {
+            btn.classList.add("active");
+          }
+        });
+
+        animate();
+
+        // 自动开始
+        if (autoStart) {
+          startAnimation();
+        }
+      }
+
+      // 开始动画
+      function startAnimation() {
+        // 确保动画未暂停
+        isPaused = false;
+
+        // 如果动画已经结束（在进度为1的位置），则重置
+        if (progress >= 1) {
+          progress = 0;
+          resetForReplay();
+        }
+
+        // 更新开始按钮文本
+        document.getElementById("startBtn").textContent = "重新播放";
+
+        addLog(
+          "<span class='step-highlight'>开始动画：</span>展示大语言模型的完整工作流程。请注意观察每个处理阶段的细节，鼠标悬停在元素上可查看更多解释"
+        );
+      }
+
+      // 事件监听器
+      document
+        .getElementById("startBtn")
+        .addEventListener("click", startAnimation);
+
+      document.getElementById("restartBtn").addEventListener("click", () => {
+        init();
+        addLog(
+          "<span class='step-highlight'>重置系统：</span>所有参数已重置，准备新的演示。您可以使用速度滑块控制动画速度，或选择特定阶段查看"
+        );
+      });
+
+      // 步骤按钮
+      stepButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          currentStep = parseInt(btn.dataset.step);
+          const stepNames = [
+            "全过程",
+            "分词阶段",
+            "注意力计算阶段",
+            "模型参数分析阶段",
+            "输出生成阶段",
+          ];
+          addLog(
+            `<span class='step-highlight'>切换到${stepNames[currentStep]}：</span>专注展示大语言模型的特定处理步骤。每个阶段都有不同的作用，共同构成完整的语言处理流程`
+          );
+
+          if (currentStep > 0) {
+            // 直接跳到该阶段的开始
+            progress = stepRanges[currentStep].start;
+
+            // 更新解释
+            const explanationKeys = [
+              "overview",
+              "tokenization",
+              "attention",
+              "parameters",
+              "generation",
+            ];
+            explanationTitle.textContent =
+              stageExplanations[explanationKeys[currentStep]].title;
+            explanationContent.textContent =
+              stageExplanations[explanationKeys[currentStep]].content;
+          } else {
+            // 完整模式从头开始
+            progress = 0;
+            explanationTitle.textContent = stageExplanations.overview.title;
+            explanationContent.textContent = stageExplanations.overview.content;
+          }
+
+          // 更新按钮样式
+          stepButtons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+
+          // 如果是暂停状态，自动开始
+          if (isPaused) {
+            isPaused = false;
+          }
+        });
+      });
+
+      // 启动动画
+      window.addEventListener("load", init);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赛博朋克风格排序算法可视化</title>
+    <style>
+        :root {
+            --neon-pink: #0088ff;
+            --neon-blue: #05d9e8;
+            --neon-purple: #0088ff;
+            --dark-bg: #0f0f12;
+            --darker-bg: #080810;
+            --highlight: #0088ff;
+            --text-color: #d7fff1;
+            --accent-color: #05d9e8;
+            --hover-primary: #0066bb;  /* 新增：主色调hover颜色 */
+            --hover-secondary: #0ad8d0; /* 新增：次色调hover颜色 */
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Rajdhani', 'Segoe UI', 'Microsoft Yahei', sans-serif;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            overflow-x: hidden;
+            line-height: 1.6;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(5, 217, 232, 0.1) 0%, transparent 80%),
+                linear-gradient(to bottom, transparent 0%, rgba(8, 8, 16, 0.8) 100%);
+            background-attachment: fixed;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            max-width: 1920px;
+            margin: 0 auto;
+            width: 100%;
+            height: calc(100vh - 60px);
+        }
+        
+        header {
+            text-align: center;
+            padding: 10px 20px;
+            position: relative;
+            border-bottom: 1px solid var(--neon-blue);
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(8, 8, 16, 0.9);
+            box-shadow: 0 0 20px rgba(5, 217, 232, 0.2);
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            position: relative;
+            display: inline-block;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+        
+        h1::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 25%;
+            width: 50%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-pink), transparent);
+        }
+        
+        /* 左侧区域 - 可视化 */
+        .visualization-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            min-width: 0; /* 防止flex溢出 */
+            overflow: hidden;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(15, 15, 18, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(5, 217, 232, 0.3);
+            box-shadow: 0 0 20px rgba(5, 217, 232, 0.1);
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+            flex: 1;
+        }
+        
+        label {
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: var(--accent-color);
+        }
+        
+        select, button, input {
+            padding: 10px 15px;
+            background-color: rgba(8, 8, 16, 0.8);
+            border: 1px solid var(--neon-blue);
+            border-radius: 5px;
+            color: var(--text-color);
+            font-size: 1rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            outline: none;
+        }
+        
+        button {
+            background-color: rgba(0, 136, 255, 0.2);
+            border-color: var(--neon-pink);
+            min-width: 100px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 136, 255, 0.3);
+        }
+        
+        button:hover {
+            background-color: var(--hover-primary);
+            color: white;
+            box-shadow: 0 0 15px rgba(0, 136, 255, 0.7);
+            transform: translateY(-2px);
+        }
+        
+        select:hover, input:hover {
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 10px rgba(0, 136, 255, 0.5);
+        }
+        
+        select:focus, input:focus {
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 15px rgba(0, 136, 255, 0.7);
+        }
+        
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(5, 217, 232, 0.2);
+            border: 1px solid rgba(5, 217, 232, 0.3);
+            background-color: var(--darker-bg);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .canvas-row {
+            display: flex;
+            flex: 1;
+            width: 100%;
+        }
+        
+        .canvas-cell {
+            flex: 1;
+            position: relative;
+            border: 1px solid rgba(5, 217, 232, 0.2);
+            overflow: hidden;
+        }
+        
+        .canvas-title {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: var(--neon-blue);
+            font-size: 0.9rem;
+            z-index: 10;
+            text-shadow: 0 0 5px rgba(5, 217, 232, 0.7);
+            background-color: rgba(8, 8, 16, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        
+        .canvas-stats {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: var(--text-color);
+            font-size: 0.8rem;
+            z-index: 10;
+            background-color: rgba(8, 8, 16, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .canvas-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .canvas-stat-label {
+            color: var(--accent-color);
+            font-size: 0.7rem;
+        }
+        
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            background-color: rgba(8, 8, 16, 0.8);
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid var(--neon-blue);
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            margin: 0;
+            cursor: pointer;
+        }
+        
+        /* 右侧区域 - 日志和说明 */
+        .info-column {
+            width: 500px;
+            border-left: 1px solid rgba(5, 217, 232, 0.3);
+            background: rgba(8, 8, 16, 0.7);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid rgba(5, 217, 232, 0.3);
+        }
+        
+        .stat {
+            background: rgba(8, 8, 16, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid var(--neon-blue);
+            flex: 1;
+            min-width: 100px;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .algorithm-info {
+            padding: 15px;
+            border-bottom: 1px solid rgba(5, 217, 232, 0.3);
+        }
+        
+        .algorithm-info h2 {
+            color: var(--neon-pink);
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            border-bottom: 1px solid rgba(255, 42, 109, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .log-container {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        .log-container h2 {
+            color: var(--neon-pink);
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            border-bottom: 1px solid rgba(255, 42, 109, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .log-content {
+            background: rgba(8, 8, 16, 0.7);
+            border: 1px solid rgba(5, 217, 232, 0.3);
+            border-radius: 5px;
+            padding: 10px;
+            font-family: monospace;
+            height: 300px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.3;
+            font-size: 0.9rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            border-left: 2px solid var(--neon-blue);
+            padding-left: 10px;
+            word-break: break-word;
+        }
+        
+        .log-entry.compare {
+            border-left-color: var(--neon-blue);
+        }
+        
+        .log-entry.swap {
+            border-left-color: var(--neon-pink);
+        }
+        
+        .log-entry.info {
+            border-left-color: var(--neon-purple);
+        }
+        
+        @media (max-width: 1200px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .info-column {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid rgba(5, 217, 232, 0.3);
+            }
+            
+            .visualization-column {
+                padding: 15px;
+            }
+            
+            .canvas-container {
+                height: 400px;
+            }
+        }
+        
+        /* Cyberpunk elements */
+        .glitch {
+            position: relative;
+        }
+        
+        .glitch::before, .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.8;
+        }
+        
+        .glitch::before {
+            color: var(--neon-pink);
+            z-index: -1;
+            animation: glitch-animation 0.3s infinite;
+        }
+        
+        .glitch::after {
+            color: var(--neon-blue);
+            z-index: -2;
+            animation: glitch-animation2 0.3s infinite;
+        }
+        
+        @keyframes glitch-animation {
+            0% { transform: translate(0); }
+            20% { transform: translate(-3px, 3px); }
+            40% { transform: translate(-3px, -3px); }
+            60% { transform: translate(3px, 3px); }
+            80% { transform: translate(3px, -3px); }
+            100% { transform: translate(0); }
+        }
+        
+        @keyframes glitch-animation2 {
+            0% { transform: translate(0); }
+            20% { transform: translate(3px, -3px); }
+            40% { transform: translate(3px, 3px); }
+            60% { transform: translate(-3px, -3px); }
+            80% { transform: translate(-3px, 3px); }
+            100% { transform: translate(0); }
+        }
+        
+        .grid-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: linear-gradient(rgba(5, 217, 232, 0.05) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(5, 217, 232, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 42, 109, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 42, 109, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 42, 109, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-overlay"></div>
+    <header>
+        <h1 class="glitch" data-text="排序算法可视化">排序算法可视化</h1>
+    </header>
+    
+    <div class="container">
+        <!-- 左侧区域 - 可视化 -->
+        <div class="visualization-column">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="algorithm">选择算法</label>
+                    <select id="algorithm">
+                        <option value="bubble">冒泡排序</option>
+                        <option value="selection">选择排序</option>
+                        <option value="insertion">插入排序</option>
+                        <option value="merge">归并排序</option>
+                        <option value="quick">快速排序</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="compareMode">对比模式</label>
+                    <select id="compareMode">
+                        <option value="single">单一算法</option>
+                        <option value="compare">横向对比</option>
+                    </select>
+                </div>
+                
+                <div class="control-group" id="multiSelectContainer" style="display: none;">
+                    <label>选择多个算法对比</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" name="compareAlgorithm" value="bubble"> 冒泡排序</label>
+                        <label><input type="checkbox" name="compareAlgorithm" value="selection"> 选择排序</label>
+                        <label><input type="checkbox" name="compareAlgorithm" value="insertion"> 插入排序</label>
+                        <label><input type="checkbox" name="compareAlgorithm" value="merge"> 归并排序</label>
+                        <label><input type="checkbox" name="compareAlgorithm" value="quick"> 快速排序</label>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="size">数组大小</label>
+                    <input type="range" id="size" min="5" max="150" value="25">
+                </div>
+                
+                <div class="control-group">
+                    <label for="speed">速度</label>
+                    <input type="range" id="speed" min="1" max="100" value="10">
+                </div>
+                
+                <div class="control-group">
+                    <label>&nbsp;</label>
+                    <button id="generate" class="pulse">生成新数组</button>
+                </div>
+                
+                <div class="control-group">
+                    <label>&nbsp;</label>
+                    <button id="start">开始排序</button>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="sortCanvas"></canvas>
+                <div id="compareContainer" style="display: none; flex: 1;"></div>
+            </div>
+        </div>
+        
+        <!-- 右侧区域 - 日志和说明 -->
+        <div class="info-column">
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">比较次数</div>
+                    <div class="stat-value" id="comparisons">0</div>
+                </div>
+                
+                <div class="stat">
+                    <div class="stat-label">交换次数</div>
+                    <div class="stat-value" id="swaps">0</div>
+                </div>
+                
+                <div class="stat">
+                    <div class="stat-label">已用时间</div>
+                    <div class="stat-value" id="time">0.00s</div>
+                </div>
+            </div>
+            
+            <div class="algorithm-info">
+                <h2 id="currentAlgorithm">冒泡排序</h2>
+                <div id="algorithmDescription">
+                    冒泡排序是最简单的排序算法之一。它重复地遍历要排序的数组，一次比较两个元素，如果它们的顺序错误就交换它们的位置。这个过程会重复进行，直到没有再需要交换的元素，也就是说该数组已经排序完成。
+                    <br><br>
+                    <b>时间复杂度</b>：最坏情况 O(n²)，最好情况 O(n)，平均情况 O(n²)
+                    <br>
+                    <b>空间复杂度</b>：O(1)
+                </div>
+            </div>
+            
+            <div class="log-container">
+                <h2>运行日志</h2>
+                <div id="logContent" class="log-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        let canvas = document.getElementById('sortCanvas');
+        let ctx = canvas.getContext('2d');
+        let array = [];
+        let arrayStates = [];
+        let sorting = false;
+        let comparisons = 0;
+        let swaps = 0;
+        let startTime = 0;
+        let animationId = null;
+        let currentStep = 0;
+        let delayFactor = 8;
+        let logContent = document.getElementById('logContent');
+        let stateDescriptions = []; // 存储状态描述
+        
+        // 对比模式变量
+        let compareCanvases = [];
+        let compareContexts = [];
+        let compareArrays = [];
+        let compareArrayStates = [];
+        let compareCurrentSteps = [];
+        let compareAnimationIds = [];
+        let compareComparisons = [];
+        let compareSwaps = [];
+        let isCompareMode = false;
+        
+        // 设置canvas尺寸
+        function resizeCanvas() {
+            const container = document.querySelector('.canvas-container');
+            
+            if (isCompareMode) {
+                // 对比模式下，每个canvas使用compareContainer
+                const compareContainer = document.getElementById('compareContainer');
+                compareContainer.style.display = 'flex';
+                document.getElementById('sortCanvas').style.display = 'none';
+                
+                // 调整每个canvas的尺寸
+                for (let i = 0; i < compareCanvases.length; i++) {
+                    if (compareCanvases[i] && compareCanvases[i].parentElement) {
+                        compareCanvases[i].width = compareCanvases[i].parentElement.clientWidth;
+                        compareCanvases[i].height = compareCanvases[i].parentElement.clientHeight;
+                        
+                        // 如果不在排序中，重绘数组
+                        if (!sorting && compareArrays[i]) {
+                            drawCompareArray(i, compareArrays[i], -1, -1, -1, -1);
+                        }
+                    }
+                }
+            } else {
+                // 单一模式
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+                document.getElementById('sortCanvas').style.display = 'block';
+                document.getElementById('compareContainer').style.display = 'none';
+                
+                if (!sorting) {
+                    drawArray(array, -1, -1, -1, -1);
+                }
+            }
+        }
+        
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = message;
+            logContent.appendChild(logEntry);
+            logContent.scrollTop = logContent.scrollHeight;
+            
+            // 限制日志条目数量
+            while (logContent.children.length > 100) {
+                logContent.removeChild(logContent.firstChild);
+            }
+        }
+
+        // 初始化页面
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            generateArray();
+            
+            // 更新算法描述
+            document.getElementById('algorithm').addEventListener('change', function() {
+                const algorithmName = this.value;
+                updateAlgorithmInfo(algorithmName);
+                
+                // 如果正在排序，停止当前排序
+                if (sorting) {
+                    cancelAnimationFrame(animationId);
+                    if (animationId) {
+                        clearTimeout(animationId);
+                    }
+                    sorting = false;
+                    document.getElementById('start').disabled = false;
+                }
+                
+                // 清空日志
+                logContent.innerHTML = '';
+                addLog(`已选择 ${document.getElementById('currentAlgorithm').textContent}`);
+                
+                // 重绘数组
+                drawArray(array, -1, -1, -1, -1);
+                resetStats();
+            });
+            
+            // 监听对比模式切换
+            document.getElementById('compareMode').addEventListener('change', function() {
+                const compareMode = this.value;
+                
+                if (compareMode === 'compare') {
+                    document.getElementById('multiSelectContainer').style.display = 'block';
+                    document.getElementById('algorithm').parentElement.style.display = 'none';
+                    isCompareMode = true;
+                } else {
+                    document.getElementById('multiSelectContainer').style.display = 'none';
+                    document.getElementById('algorithm').parentElement.style.display = 'block';
+                    isCompareMode = false;
+                    
+                    // 清空对比容器
+                    const compareContainer = document.getElementById('compareContainer');
+                    compareContainer.innerHTML = '';
+                    compareContainer.style.display = 'none';
+                    document.getElementById('sortCanvas').style.display = 'block';
+                    
+                    // 重置对比相关变量
+                    compareCanvases = [];
+                    compareContexts = [];
+                    compareArrays = [];
+                    compareArrayStates = [];
+                    compareCurrentSteps = [];
+                    compareAnimationIds = [];
+                    compareComparisons = [];
+                    compareSwaps = [];
+                }
+                
+                // 重置界面
+                if (sorting) {
+                    // 如果正在排序，停止当前排序
+                    if (isCompareMode) {
+                        // 停止所有对比模式的动画
+                        for (let i = 0; i < compareAnimationIds.length; i++) {
+                            if (compareAnimationIds[i]) {
+                                clearTimeout(compareAnimationIds[i]);
+                            }
+                        }
+                    } else {
+                        // 停止单一模式的动画
+                        if (animationId) {
+                            clearTimeout(animationId);
+                        }
+                    }
+                    sorting = false;
+                    document.getElementById('start').disabled = false;
+                }
+                
+                // 重新生成数组
+                generateArray();
+                
+                // 重置统计信息
+                resetStats();
+                
+                // 清空日志
+                logContent.innerHTML = '';
+                addLog(`已切换到${compareMode === 'compare' ? '横向对比' : '单一算法'}模式`);
+            });
+            
+            addLog('系统初始化完成，请选择算法并调整参数');
+            addLog(`已选择 ${document.getElementById('currentAlgorithm').textContent}`);
+        });
+        
+        window.addEventListener('resize', resizeCanvas);
+        
+        // 生成随机数组
+        document.getElementById('generate').addEventListener('click', generateArray);
+        
+        // 开始排序
+        document.getElementById('start').addEventListener('click', startSorting);
+        
+        // 生成随机数组
+        function generateArray() {
+            if (sorting) return;
+            
+            const size = parseInt(document.getElementById('size').value);
+            array = [];
+            
+            for (let i = 0; i < size; i++) {
+                array.push(Math.floor(Math.random() * (canvas.height - 50)) + 10);
+            }
+            
+            if (isCompareMode) {
+                // 对比模式下，更新所有canvas
+                for (let i = 0; i < compareCanvases.length; i++) {
+                    compareArrays[i] = [...array];
+                    drawCompareArray(i, compareArrays[i], -1, -1, -1, -1);
+                }
+            } else {
+                // 单一模式
+                drawArray(array, -1, -1, -1, -1);
+            }
+            
+            resetStats();
+            
+            logContent.innerHTML = '';
+            addLog(`已生成大小为 ${size} 的随机数组，数值范围：${Math.min(...array)} - ${Math.max(...array)}`);
+        }
+        
+        // 重置统计信息
+        function resetStats() {
+            comparisons = 0;
+            swaps = 0;
+            startTime = 0;
+            document.getElementById('comparisons').textContent = '0';
+            document.getElementById('swaps').textContent = '0';
+            document.getElementById('time').textContent = '0.00s';
+            
+            // 重置对比模式的统计信息
+            if (isCompareMode) {
+                for (let i = 0; i < compareCanvases.length; i++) {
+                    compareComparisons[i] = 0;
+                    compareSwaps[i] = 0;
+                    const compElement = document.getElementById(`compare-comparisons-${i}`);
+                    const swapElement = document.getElementById(`compare-swaps-${i}`);
+                    if (compElement) compElement.textContent = '0';
+                    if (swapElement) swapElement.textContent = '0';
+                }
+            }
+        }
+        
+        // 开始排序
+        function startSorting() {
+            if (sorting) return;
+            
+            const compareMode = document.getElementById('compareMode').value;
+            isCompareMode = compareMode === 'compare';
+            
+            if (isCompareMode) {
+                startCompareSorting();
+            } else {
+                startSingleSorting();
+            }
+        }
+        
+        // 单一算法排序
+        function startSingleSorting() {
+            const algorithm = document.getElementById('algorithm').value;
+            const startBtn = document.getElementById('start');
+            
+            sorting = true;
+            startTime = performance.now();
+            arrayStates = [];
+            currentStep = 0;
+            
+            // 准备排序数据
+            const arrayCopy = [...array];
+            resetStats();
+            
+            // 清空日志
+            logContent.innerHTML = '';
+            
+            // 添加初始日志
+            addLog(`开始执行 ${document.getElementById('currentAlgorithm').textContent}`, 'info');
+            
+            // 执行排序算法并保存状态
+            switch (algorithm) {
+                case 'bubble':
+                    bubbleSort(arrayCopy);
+                    break;
+                case 'selection':
+                    selectionSort(arrayCopy);
+                    break;
+                case 'insertion':
+                    insertionSort(arrayCopy);
+                    break;
+                case 'merge':
+                    arrayCopy.slice(); // 为了跟踪状态，我们需要使用特殊的实现
+                    mergeSortWithStates(arrayCopy, 0, arrayCopy.length - 1);
+                    break;
+                case 'quick':
+                    quickSortWithStates(arrayCopy, 0, arrayCopy.length - 1);
+                    break;
+            }
+            
+            // 开始动画
+            animate();
+            
+            startBtn.disabled = true;
+        }
+        
+        // 对比模式排序
+        function startCompareSorting() {
+            // 获取选中的算法
+            const selectedAlgorithms = [];
+            document.querySelectorAll('input[name="compareAlgorithm"]:checked').forEach(checkbox => {
+                selectedAlgorithms.push(checkbox.value);
+            });
+            
+            if (selectedAlgorithms.length === 0) {
+                addLog('请至少选择一个算法进行对比', 'error');
+                return;
+            }
+            
+            if (selectedAlgorithms.length === 1) {
+                // 如果只选择了一个算法，切换回单一模式
+                document.getElementById('algorithm').value = selectedAlgorithms[0];
+                document.getElementById('compareMode').value = 'single';
+                document.getElementById('multiSelectContainer').style.display = 'none';
+                isCompareMode = false;
+                startSingleSorting();
+                return;
+            }
+            
+            const startBtn = document.getElementById('start');
+            sorting = true;
+            startTime = performance.now();
+            
+            // 清空日志
+            logContent.innerHTML = '';
+            addLog(`开始横向对比 ${selectedAlgorithms.length} 种排序算法`, 'info');
+            
+            // 准备对比容器
+            setupCompareContainer(selectedAlgorithms);
+            
+            // 初始化对比数据
+            compareArrayStates = new Array(selectedAlgorithms.length).fill().map(() => []);
+            compareCurrentSteps = new Array(selectedAlgorithms.length).fill(0);
+            compareAnimationIds = new Array(selectedAlgorithms.length).fill(null);
+            compareComparisons = new Array(selectedAlgorithms.length).fill(0);
+            compareSwaps = new Array(selectedAlgorithms.length).fill(0);
+            
+            // 为每个算法准备相同的初始数组
+            for (let i = 0; i < selectedAlgorithms.length; i++) {
+                compareArrays[i] = [...array];
+                
+                // 执行排序算法并保存状态
+                const algorithm = selectedAlgorithms[i];
+                const arrayCopy = [...array];
+                
+                // 重置状态描述
+                stateDescriptions = [];
+                
+                switch (algorithm) {
+                    case 'bubble':
+                        bubbleSort(arrayCopy);
+                        break;
+                    case 'selection':
+                        selectionSort(arrayCopy);
+                        break;
+                    case 'insertion':
+                        insertionSort(arrayCopy);
+                        break;
+                    case 'merge':
+                        arrayCopy.slice();
+                        mergeSortWithStates(arrayCopy, 0, arrayCopy.length - 1);
+                        break;
+                    case 'quick':
+                        quickSortWithStates(arrayCopy, 0, arrayCopy.length - 1);
+                        break;
+                }
+                
+                // 保存此算法的状态
+                compareArrayStates[i] = [...arrayStates];
+                arrayStates = []; // 清空，准备下一个算法
+            }
+            
+            // 开始所有算法的动画
+            for (let i = 0; i < selectedAlgorithms.length; i++) {
+                animateCompare(i);
+            }
+            
+            startBtn.disabled = true;
+        }
+        
+        // 设置对比容器
+        function setupCompareContainer(algorithms) {
+            const compareContainer = document.getElementById('compareContainer');
+            compareContainer.innerHTML = '';
+            compareCanvases = [];
+            compareContexts = [];
+            
+            // 创建行容器
+            const row = document.createElement('div');
+            row.className = 'canvas-row';
+            compareContainer.appendChild(row);
+            
+            // 为每个算法创建一个canvas
+            for (let i = 0; i < algorithms.length; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'canvas-cell';
+                
+                // 添加算法标题
+                const title = document.createElement('div');
+                title.className = 'canvas-title';
+                title.textContent = getAlgorithmName(algorithms[i]);
+                cell.appendChild(title);
+                
+                // 添加统计信息
+                const stats = document.createElement('div');
+                stats.className = 'canvas-stats';
+                stats.innerHTML = `
+                    <div class="canvas-stat">
+                        <div class="canvas-stat-label">比较</div>
+                        <div class="canvas-stat-value" id="compare-comparisons-${i}">0</div>
+                    </div>
+                    <div class="canvas-stat">
+                        <div class="canvas-stat-label">交换</div>
+                        <div class="canvas-stat-value" id="compare-swaps-${i}">0</div>
+                    </div>
+                `;
+                cell.appendChild(stats);
+                
+                // 创建canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = cell.clientWidth;
+                canvas.height = cell.clientHeight;
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+                canvas.style.display = 'block';
+                cell.appendChild(canvas);
+                
+                row.appendChild(cell);
+                
+                // 保存canvas和context引用
+                compareCanvases.push(canvas);
+                compareContexts.push(canvas.getContext('2d'));
+            }
+            
+            // 调整canvas尺寸
+            resizeCanvas();
+        }
+        
+        // 获取算法名称
+        function getAlgorithmName(algorithm) {
+            switch (algorithm) {
+                case 'bubble': return '冒泡排序';
+                case 'selection': return '选择排序';
+                case 'insertion': return '插入排序';
+                case 'merge': return '归并排序';
+                case 'quick': return '快速排序';
+                default: return algorithm;
+            }
+        }
+        
+        // 对比模式动画
+        function animateCompare(index) {
+            if (compareCurrentSteps[index] >= compareArrayStates[index].length) {
+                // 此算法排序完成
+                compareAnimationIds[index] = null;
+                
+                // 检查是否所有算法都完成了
+                const allDone = compareAnimationIds.every(id => id === null);
+                if (allDone) {
+                    sorting = false;
+                    document.getElementById('start').disabled = false;
+                    addLog('所有排序算法对比完成！', 'info');
+                }
+                return;
+            }
+            
+            const speed = parseInt(document.getElementById('speed').value);
+            const delay = Math.max(1, Math.floor(100 / speed)) * delayFactor;
+            
+            compareAnimationIds[index] = setTimeout(() => {
+                const state = compareArrayStates[index][compareCurrentSteps[index]];
+                drawCompareArray(index, state.array, state.comparing[0], state.comparing[1], state.swapping[0], state.swapping[1]);
+                
+                // 更新此算法的统计信息
+                if (state.isComparing) {
+                    compareComparisons[index]++;
+                    document.getElementById(`compare-comparisons-${index}`).textContent = compareComparisons[index];
+                }
+                
+                if (state.isSwapping) {
+                    compareSwaps[index]++;
+                    document.getElementById(`compare-swaps-${index}`).textContent = compareSwaps[index];
+                }
+                
+                compareCurrentSteps[index]++;
+                animateCompare(index);
+            }, delay);
+        }
+        
+        // 绘制对比模式的数组
+        function drawCompareArray(index, arr, comparing1, comparing2, swapping1, swapping2) {
+            const ctx = compareContexts[index];
+            const canvas = compareCanvases[index];
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const barWidth = canvas.width / arr.length;
+            const barMargin = Math.min(4, barWidth / 4);
+            const effectiveBarWidth = barWidth - barMargin;
+            
+            const maxHeight = Math.max(...arr);
+            const heightFactor = (canvas.height - 40) / maxHeight;
+            
+            // 绘制网格背景
+            drawCompareGrid(index);
+            
+            // 绘制每个元素
+            for (let i = 0; i < arr.length; i++) {
+                let barHeight = arr[i] * heightFactor;
+                
+                // 确定颜色
+                let gradient;
+                
+                if (i === comparing1 || i === comparing2) {
+                    // 比较中的元素
+                    gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+                    gradient.addColorStop(0, 'rgba(211, 0, 197, 0.9)');  // 紫色
+                    gradient.addColorStop(1, 'rgba(211, 0, 197, 0.4)');
+                    
+                } else if (i === swapping1 || i === swapping2) {
+                    // 交换中的元素
+                    gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+                    gradient.addColorStop(0, 'rgba(255, 42, 109, 0.9)');  // 粉色
+                    gradient.addColorStop(1, 'rgba(255, 42, 109, 0.4)');
+                } else {
+                    // 常规元素
+                    gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+                    gradient.addColorStop(0, 'rgba(5, 217, 232, 0.9)');  // 蓝色
+                    gradient.addColorStop(1, 'rgba(5, 217, 232, 0.4)');
+                }
+                
+                ctx.fillStyle = gradient;
+                ctx.shadowColor = 'rgba(211, 0, 197, 0.7)';
+                ctx.shadowBlur = 10;
+                
+                // 绘制柱状
+                ctx.beginPath();
+                ctx.rect(i * barWidth + barMargin/2, canvas.height - barHeight, effectiveBarWidth, barHeight);
+                ctx.fill();
+                
+                // 添加顶部发光效果
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(i * barWidth + barMargin/2, canvas.height - barHeight);
+                ctx.lineTo(i * barWidth + effectiveBarWidth + barMargin/2, canvas.height - barHeight);
+                ctx.stroke();
+                
+                // 重置阴影
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        // 绘制对比模式的网格背景
+        function drawCompareGrid(index) {
+            const ctx = compareContexts[index];
+            const canvas = compareCanvases[index];
+            
+            ctx.strokeStyle = 'rgba(5, 217, 232, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // 垂直网格线
+            const gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // 水平网格线
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+        
+        // 动画函数
+        function animate() {
+            if (currentStep >= arrayStates.length) {
+                // 排序完成
+                sorting = false;
+                document.getElementById('start').disabled = false;
+                addLog('排序完成！', 'info');
+                return;
+            }
+            
+            const speed = parseInt(document.getElementById('speed').value);
+            const delay = Math.max(1, Math.floor(100 / speed)) * delayFactor;
+            
+            animationId = setTimeout(() => {
+                const state = arrayStates[currentStep];
+                drawArray(state.array, state.comparing[0], state.comparing[1], state.swapping[0], state.swapping[1]);
+                
+                // 更新统计信息
+                if (state.isComparing) {
+                    comparisons++;
+                    document.getElementById('comparisons').textContent = comparisons;
+                    
+                    if (state.comparing[0] >= 0 && state.comparing[1] >= 0) {
+                        addLog(`比较: 索引 ${state.comparing[0]} (${state.array[state.comparing[0]]}) 与 索引 ${state.comparing[1]} (${state.array[state.comparing[1]]})`, 'compare');
+                    }
+                }
+                
+                if (state.isSwapping) {
+                    swaps++;
+                    document.getElementById('swaps').textContent = swaps;
+                    
+                    if (state.swapping[0] >= 0 && state.swapping[1] >= 0) {
+                        addLog(`交换: 索引 ${state.swapping[0]} (${state.array[state.swapping[0]]}) 与 索引 ${state.swapping[1]} (${state.array[state.swapping[1]]})`, 'swap');
+                    }
+                }
+                
+                // 显示此状态的描述（如果有）
+                if (stateDescriptions[currentStep]) {
+                    addLog(stateDescriptions[currentStep], 'info');
+                }
+                
+                document.getElementById('time').textContent = ((performance.now() - startTime) / 1000).toFixed(2) + 's';
+                
+                currentStep++;
+                animate();
+            }, delay);
+        }
+        
+        // 绘制数组
+        function drawArray(arr, comparing1, comparing2, swapping1, swapping2) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const barWidth = canvas.width / arr.length;
+            const barMargin = Math.min(4, barWidth / 4);
+            const effectiveBarWidth = barWidth - barMargin;
+            
+            const maxHeight = Math.max(...arr);
+            const heightFactor = (canvas.height - 40) / maxHeight;
+            
+            // 绘制网格背景
+            drawGrid();
+            
+            // 绘制每个元素
+            for (let i = 0; i < arr.length; i++) {
+                let barHeight = arr[i] * heightFactor;
+                
+                // 确定颜色
+                let gradient;
+                
+                if (i === comparing1 || i === comparing2) {
+                    // 比较中的元素
+                    gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+                    gradient.addColorStop(0, 'rgba(211, 0, 197, 0.9)');  // 紫色
+                    gradient.addColorStop(1, 'rgba(211, 0, 197, 0.4)');
+                } else if (i === swapping1 || i === swapping2) {
+                    // 交换中的元素
+                    gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+                    gradient.addColorStop(0, 'rgba(255, 42, 109, 0.9)');  // 粉色
+                    gradient.addColorStop(1, 'rgba(255, 42, 109, 0.4)');
+                } else {
+                    // 常规元素
+                    gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+                    gradient.addColorStop(0, 'rgba(5, 217, 232, 0.9)');  // 蓝色
+                    gradient.addColorStop(1, 'rgba(5, 217, 232, 0.4)');
+                }
+                
+                ctx.fillStyle = gradient;
+                ctx.shadowColor = 'rgba(5, 217, 232, 0.7)';
+                ctx.shadowBlur = 10;
+                
+                // 绘制柱状
+                ctx.beginPath();
+                ctx.rect(i * barWidth + barMargin/2, canvas.height - barHeight, effectiveBarWidth, barHeight);
+                ctx.fill();
+                
+                // 添加顶部发光效果
+                ctx.strokeStyle = 'rgba(5, 217, 232 0.7)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(i * barWidth + barMargin/2, canvas.height - barHeight);
+                ctx.lineTo(i * barWidth + effectiveBarWidth + barMargin/2, canvas.height - barHeight);
+                ctx.stroke();
+                
+                // 重置阴影
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        // 绘制网格背景
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(5, 217, 232, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // 垂直网格线
+            const gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // 水平网格线
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+        
+        // 保存数组状态
+        function saveState(arr, comparing1, comparing2, swapping1, swapping2, isComparing, isSwapping, description = '') {
+            arrayStates.push({
+                array: [...arr],
+                comparing: [comparing1, comparing2],
+                swapping: [swapping1, swapping2],
+                isComparing: isComparing,
+                isSwapping: isSwapping
+            });
+            
+            // 保存对应的描述，稍后在动画中显示
+            stateDescriptions.push(description);
+        }
+        
+        // 更新算法信息
+        function updateAlgorithmInfo(algorithm) {
+            const algorithmTitle = document.getElementById('currentAlgorithm');
+            const algorithmDescription = document.getElementById('algorithmDescription');
+            
+            switch (algorithm) {
+                case 'bubble':
+                    algorithmTitle.textContent = '冒泡排序';
+                    algorithmDescription.innerHTML = '冒泡排序是最简单的排序算法之一。它重复地遍历要排序的数组，一次比较两个元素，如果它们的顺序错误就交换它们的位置。这个过程会重复进行，直到没有再需要交换的元素，也就是说该数组已经排序完成。<br><br><b>时间复杂度</b>：最坏情况 O(n²)，最好情况 O(n)，平均情况 O(n²)<br><b>空间复杂度</b>：O(1)';
+                    break;
+                case 'selection':
+                    algorithmTitle.textContent = '选择排序';
+                    algorithmDescription.innerHTML = '选择排序是一种简单直观的排序算法。它的工作原理是：首先在未排序序列中找到最小（大）元素，存放到排序序列的起始位置；然后，再从剩余未排序元素中继续寻找最小（大）元素，然后放到已排序序列的末尾。以此类推，直到所有元素均排序完毕。<br><br><b>时间复杂度</b>：最坏情况 O(n²)，最好情况 O(n²)，平均情况 O(n²)<br><b>空间复杂度</b>：O(1)';
+                    break;
+                case 'insertion':
+                    algorithmTitle.textContent = '插入排序';
+                    algorithmDescription.innerHTML = '插入排序的工作原理是通过构建有序序列，对于未排序数据，在已排序序列中从后向前扫描，找到相应位置并插入。插入排序在实现上，通常采用in-place排序（即只需用到O(1)的额外空间的排序），因而在从后向前扫描过程中，需要反复把已排序元素逐步向后挪位，为最新元素提供插入空间。<br><br><b>时间复杂度</b>：最坏情况 O(n²)，最好情况 O(n)，平均情况 O(n²)<br><b>空间复杂度</b>：O(1)';
+                    break;
+                case 'merge':
+                    algorithmTitle.textContent = '归并排序';
+                    algorithmDescription.innerHTML = '归并排序是建立在归并操作上的一种有效的排序算法。该算法是采用分治法（Divide and Conquer）的一个非常典型的应用。归并排序是一种稳定的排序方法。将已有序的子序列合并，得到完全有序的序列；即先使每个子序列有序，再使子序列段间有序。若将两个有序表合并成一个有序表，称为2-路归并。<br><br><b>时间复杂度</b>：最坏情况 O(n log n)，最好情况 O(n log n)，平均情况 O(n log n)<br><b>空间复杂度</b>：O(n)';
+                    break;
+                case 'quick':
+                    algorithmTitle.textContent = '快速排序';
+                    algorithmDescription.innerHTML = '快速排序使用分治法（Divide and conquer）策略来把一个序列分为较小和较大的2个子序列，然后递归地排序两个子序列。步骤为：挑选基准值，重新排序数列，将所有比基准值小的元素摆放在基准前面，所有比基准值大的摆在基准后面；递归地将小于基准值元素的子数列和大于基准值元素的子数列排序。<br><br><b>时间复杂度</b>：最坏情况 O(n²)，最好情况 O(n log n)，平均情况 O(n log n)<br><b>空间复杂度</b>：O(log n)';
+                    break;
+            }
+        }
+        
+        // ===== 排序算法实现 =====
+        
+        // 冒泡排序
+        function bubbleSort(arr) {
+            const n = arr.length;
+            
+            saveState(arr, -1, -1, -1, -1, false, false, '开始冒泡排序');
+            
+            for (let i = 0; i < n; i++) {
+                let swapped = false;
+                
+                for (let j = 0; j < n - i - 1; j++) {
+                    // 保存比较状态
+                    saveState(arr, j, j + 1, -1, -1, true, false);
+                    
+                    if (arr[j] > arr[j + 1]) {
+                        // 保存交换状态
+                        saveState(arr, -1, -1, j, j + 1, false, true);
+                        
+                        // 交换元素
+                        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+                        swapped = true;
+                        
+                        // 保存交换后状态
+                        saveState(arr, -1, -1, j, j + 1, false, false);
+                    }
+                }
+                
+                // 如果没有交换发生，数组已经排序完成
+                if (!swapped) {
+                    saveState(arr, -1, -1, -1, -1, false, false, `提前结束：第 ${i+1} 轮完成后已排序`);
+                    break;
+                }
+                
+                saveState(arr, -1, -1, -1, -1, false, false, `完成第 ${i+1} 轮冒泡`);
+            }
+            
+            // 保存最终状态
+            saveState(arr, -1, -1, -1, -1, false, false, '冒泡排序完成');
+        }
+        
+        // 选择排序
+        function selectionSort(arr) {
+            const n = arr.length;
+            
+            saveState(arr, -1, -1, -1, -1, false, false, '开始选择排序');
+            
+            for (let i = 0; i < n - 1; i++) {
+                let minIdx = i;
+                
+                saveState(arr, -1, -1, -1, -1, false, false, `第 ${i+1} 轮：寻找位置 ${i} 后的最小元素`);
+                
+                for (let j = i + 1; j < n; j++) {
+                    // 保存比较状态
+                    saveState(arr, minIdx, j, -1, -1, true, false);
+                    
+                    if (arr[j] < arr[minIdx]) {
+                        minIdx = j;
+                    }
+                }
+                
+                if (minIdx !== i) {
+                    // 保存交换状态
+                    saveState(arr, -1, -1, i, minIdx, false, true);
+                    
+                    // 交换元素
+                    [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
+                    
+                    // 保存交换后状态
+                    saveState(arr, -1, -1, i, minIdx, false, false);
+                    
+                    saveState(arr, -1, -1, -1, -1, false, false, `将最小元素 ${arr[i]} 放到位置 ${i}`);
+                } else {
+                    saveState(arr, -1, -1, -1, -1, false, false, `位置 ${i} 已经是最小元素，无需交换`);
+                }
+            }
+            
+            // 保存最终状态
+            saveState(arr, -1, -1, -1, -1, false, false, '选择排序完成');
+        }
+        
+        // 插入排序
+        function insertionSort(arr) {
+            const n = arr.length;
+            
+            saveState(arr, -1, -1, -1, -1, false, false, '开始插入排序');
+            
+            for (let i = 1; i < n; i++) {
+                let key = arr[i];
+                let j = i - 1;
+                
+                saveState(arr, -1, -1, -1, -1, false, false, `处理元素 ${key}（索引 ${i}）`);
+                
+                // 保存当前元素状态
+                saveState(arr, i, -1, -1, -1, false, false);
+                
+                while (j >= 0) {
+                    // 保存比较状态
+                    saveState(arr, j, i, -1, -1, true, false);
+                    
+                    if (arr[j] > key) {
+                        // 保存移动状态
+                        saveState(arr, -1, -1, j, j + 1, false, true);
+                        
+                        arr[j + 1] = arr[j];
+                        j--;
+                        
+                        // 更新后状态
+                        arr[j + 1] = arr[j + 1];
+                        saveState([...arr], -1, -1, j + 1, -1, false, false);
+                    } else {
+                        break;
+                    }
+                }
+                
+                arr[j + 1] = key;
+                
+                // 保存插入后状态
+                saveState([...arr], -1, -1, j + 1, -1, false, false);
+                saveState(arr, -1, -1, -1, -1, false, false, `插入元素 ${key} 到位置 ${j + 1}`);
+            }
+            
+            // 保存最终状态
+            saveState(arr, -1, -1, -1, -1, false, false, '插入排序完成');
+        }
+        
+        // 归并排序
+        function mergeSortWithStates(arr, left, right) {
+            if (left < right) {
+                const mid = Math.floor((left + right) / 2);
+                
+                saveState(arr, -1, -1, -1, -1, false, false, `划分子数组：[${left}..${mid}] 和 [${mid+1}..${right}]`);
+                
+                // 递归排序左半部分
+                mergeSortWithStates(arr, left, mid);
+                
+                // 递归排序右半部分
+                mergeSortWithStates(arr, mid + 1, right);
+                
+                // 合并两个已排序的子数组
+                saveState(arr, -1, -1, -1, -1, false, false, `合并子数组：[${left}..${mid}] 和 [${mid+1}..${right}]`);
+                merge(arr, left, mid, right);
+            }
+        }
+        
+        // 合并函数
+        function merge(arr, left, mid, right) {
+            const n1 = mid - left + 1;
+            const n2 = right - mid;
+            
+            // 创建临时数组
+            const L = new Array(n1);
+            const R = new Array(n2);
+            
+            // 复制数据到临时数组
+            for (let i = 0; i < n1; i++) {
+                L[i] = arr[left + i];
+            }
+            for (let j = 0; j < n2; j++) {
+                R[j] = arr[mid + 1 + j];
+            }
+            
+            // 合并临时数组
+            let i = 0, j = 0;
+            let k = left;
+            
+            while (i < n1 && j < n2) {
+                // 保存比较状态
+                saveState([...arr], left + i, mid + 1 + j, -1, -1, true, false);
+                
+                if (L[i] <= R[j]) {
+                    // 保存赋值状态
+                    saveState([...arr], -1, -1, k, -1, false, true);
+                    
+                    arr[k] = L[i];
+                    i++;
+                } else {
+                    // 保存赋值状态
+                    saveState([...arr], -1, -1, k, -1, false, true);
+                    
+                    arr[k] = R[j];
+                    j++;
+                }
+                k++;
+                
+                // 保存更新后状态
+                saveState([...arr], -1, -1, -1, -1, false, false);
+            }
+            
+            // 复制剩余元素
+            while (i < n1) {
+                // 保存赋值状态
+                saveState([...arr], -1, -1, k, -1, false, true);
+                
+                arr[k] = L[i];
+                i++;
+                k++;
+                
+                // 保存更新后状态
+                saveState([...arr], -1, -1, -1, -1, false, false);
+            }
+            
+            while (j < n2) {
+                // 保存赋值状态
+                saveState([...arr], -1, -1, k, -1, false, true);
+                
+                arr[k] = R[j];
+                j++;
+                k++;
+                
+                // 保存更新后状态
+                saveState([...arr], -1, -1, -1, -1, false, false);
+            }
+        }
+        
+        // 快速排序
+        function quickSortWithStates(arr, low, high) {
+            if (low < high) {
+                saveState(arr, -1, -1, -1, -1, false, false, `快速排序范围：[${low}..${high}]`);
+                
+                // 获取分区点
+                const pi = partition(arr, low, high);
+                
+                saveState(arr, -1, -1, -1, -1, false, false, `分区完成：基准值 ${arr[pi]} 在位置 ${pi}`);
+                
+                // 递归排序左半部分
+                quickSortWithStates(arr, low, pi - 1);
+                
+                // 递归排序右半部分
+                quickSortWithStates(arr, pi + 1, high);
+            }
+        }
+        
+        // 分区函数
+        function partition(arr, low, high) {
+            // 选择最右边的元素作为基准
+            const pivot = arr[high];
+            
+            saveState(arr, -1, -1, -1, -1, false, false, `选择基准值：${pivot}（索引 ${high}）`);
+            
+            // 保存基准状态
+            saveState([...arr], -1, high, -1, -1, false, false);
+            
+            let i = low - 1;
+            
+            for (let j = low; j < high; j++) {
+                // 保存比较状态
+                saveState([...arr], j, high, -1, -1, true, false);
+                
+                if (arr[j] < pivot) {
+                    i++;
+                    
+                    // 保存交换状态
+                    saveState([...arr], -1, -1, i, j, false, true);
+                    
+                    // 交换元素
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                    
+                    // 保存交换后状态
+                    saveState([...arr], -1, -1, i, j, false, false);
+                }
+            }
+            
+            // 交换基准元素到正确位置
+            // 保存交换状态
+            saveState([...arr], -1, -1, i + 1, high, false, true);
+            
+            // 交换元素
+            [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
+            
+            // 保存交换后状态
+            saveState([...arr], -1, -1, i + 1, high, false, false);
+            
+            return i + 1;
+        }
+        
+        // 初始化调用
+        generateArray();
+        
+        // 添加消息监听器，用于接收来自父窗口的控制消息
+        window.addEventListener('message', (event) => {
+            // 确保消息来源安全
+            if (event.origin !== window.location.origin && event.origin !== '') {
+                return;
+            }
+            
+            const message = event.data;
+            
+            // 处理不同类型的消息
+            if (message === 'reset') {
+                // 重置可视化
+                generateArray();
+                resetStats();
+                isRunning = false;
+                isPaused = false;
+                document.getElementById('startBtn').textContent = '开始排序';
+                document.getElementById('pauseBtn').textContent = '暂停';
+                document.getElementById('pauseBtn').disabled = true;
+                addLog('可视化已重置', 'info');
+            } else if (message === 'play') {
+                // 开始或继续排序
+                if (!isRunning) {
+                    startSorting();
+                } else if (isPaused) {
+                    isPaused = false;
+                    document.getElementById('pauseBtn').textContent = '暂停';
+                    addLog('排序继续', 'info');
+                }
+            } else if (message === 'pause') {
+                // 暂停排序
+                if (isRunning && !isPaused) {
+                    isPaused = true;
+                    document.getElementById('pauseBtn').textContent = '继续';
+                    addLog('排序已暂停', 'info');
+                }
+            } else if (typeof message === 'object' && message.type === 'speed') {
+                // 调整速度
+                const newSpeed = message.value;
+                document.getElementById('speedRange').value = newSpeed;
+                animationSpeed = 101 - newSpeed;
+                addLog(`速度已调整为 ${newSpeed}`, 'info');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赛博朋克风格寻路算法可视化</title>
+    <style>
+        :root {
+            --neon-pink: #ff2a6d;
+            --neon-blue: #05d9e8;
+            --neon-purple: #d162a4;
+            --neon-green: #00ff9f;
+            --dark-bg: #0a0a12;
+            --dark-blue: #1a1a2e;
+            --dark-purple: #16213e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: white;
+            overflow-x: hidden;
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1920px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .main-content {
+            display: flex;
+            width: 100%;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .canvas-container {
+            position: relative;
+            width: 70%;
+            box-shadow: 0 0 20px rgba(5, 217, 232, 0.5);
+            border: 1px solid var(--neon-blue);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background-color: var(--dark-purple);
+            width: 100%;
+            height: 100%;
+        }
+        
+        .algorithm-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(10, 10, 18, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid var(--neon-pink);
+            max-width: 300px;
+        }
+        
+        .controls {
+            width: 25%;
+            padding: 20px;
+            background-color: var(--dark-blue);
+            border-radius: 5px;
+            border: 1px solid var(--neon-purple);
+            box-shadow: 0 0 15px rgba(209, 98, 164, 0.5);
+        }
+        
+        .controls h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--neon-blue);
+            text-shadow: 0 0 5px rgba(5, 217, 232, 0.7);
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ddd;
+        }
+        
+        select, button, input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: var(--dark-purple);
+            color: white;
+            border: 1px solid var(--neon-blue);
+            border-radius: 4px;
+            outline: none;
+        }
+        
+        select:focus, button:focus, input:focus {
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 5px var(--neon-pink);
+        }
+        
+        button {
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            box-shadow: 0 0 15px var(--neon-blue);
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        .button-start {
+            background: linear-gradient(45deg, var(--neon-green), var(--neon-blue));
+        }
+        
+        .button-reset {
+            background: linear-gradient(45deg, var(--neon-pink), var(--neon-purple));
+        }
+        
+        .range-slider {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 10px;
+            background: var(--dark-purple);
+            border-radius: 5px;
+            background-image: linear-gradient(var(--neon-blue), var(--neon-blue));
+            background-size: 50% 100%;
+            background-repeat: no-repeat;
+        }
+        
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-pink);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-pink);
+        }
+        
+        .legend {
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--dark-blue);
+            border-radius: 5px;
+            border: 1px solid var(--neon-blue);
+        }
+        
+        .legend h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: var(--neon-blue);
+        }
+        
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1200px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .canvas-container, .controls {
+                width: 100%;
+            }
+            
+            header h1 {
+                font-size: 2.5rem;
+            }
+        }
+        
+        /* 赛博朋克装饰元素 */
+        .cyber-decoration {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .cyber-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+            height: 1px;
+            width: 100%;
+            animation: cyber-line-anim 15s linear infinite;
+            opacity: 0.5;
+        }
+        
+        .cyber-line:nth-child(1) {
+            top: 10%;
+        }
+        
+        .cyber-line:nth-child(2) {
+            top: 30%;
+            animation-delay: -5s;
+        }
+        
+        .cyber-line:nth-child(3) {
+            top: 70%;
+            animation-delay: -8s;
+        }
+        
+        .cyber-grid {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(var(--dark-bg) 1px, transparent 1px),
+                linear-gradient(90deg, var(--dark-bg) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: -1px -1px;
+            opacity: 0.1;
+        }
+        
+        @keyframes cyber-line-anim {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        /* 动态设置信息 */
+        .stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(10, 10, 18, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            border-right: 3px solid var(--neon-green);
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .stats div {
+            margin-bottom: 5px;
+        }
+        
+        .stats .value {
+            color: var(--neon-green);
+            font-weight: bold;
+        }
+        
+        /* 说明面板 */
+        .explanation {
+            position: absolute;
+            width: 300px;
+            background-color: rgba(10, 10, 18, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid var(--neon-pink);
+            box-shadow: 0 0 15px rgba(255, 42, 109, 0.5);
+            z-index: 100;
+            transform: translateX(-50%);
+            transition: opacity 0.3s ease;
+            display: none;
+        }
+        
+        .explanation-title {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--neon-pink);
+        }
+        
+        .close-explanation {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            color: var(--neon-blue);
+            font-size: 1.2rem;
+        }
+        
+        .explanation-content {
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        /* 自定义单选按钮样式 */
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .radio-item input[type="radio"] {
+            display: none;
+        }
+        
+        .radio-item label {
+            padding: 5px 10px;
+            border-radius: 5px;
+            background-color: var(--dark-purple);
+            color: white;
+            cursor: pointer;
+        }
+        
+        .radio-item input[type="radio"]:checked + label {
+            background-color: var(--neon-blue);
+        }
+    </style>
+</head>
+<body>
+    <div class="cyber-decoration">
+        <div class="cyber-grid"></div>
+        <div class="cyber-line"></div>
+        <div class="cyber-line"></div>
+        <div class="cyber-line"></div>
+    </div>
+
+    <div class="container">
+
+        <div class="main-content">
+            <div class="canvas-container">
+                <canvas id="pathCanvas"></canvas>
+                <div class="stats">
+                    <div>状态: <span class="value" id="status">就绪</span></div>
+                    <div>已探索: <span class="value" id="explored">0</span> 个节点</div>
+                    <div>路径长度: <span class="value" id="pathLength">0</span></div>
+                    <div>用时: <span class="value" id="time">0</span> ms</div>
+                </div>
+                <div class="algorithm-info" id="algorithmInfo">
+                    <h4>算法说明</h4>
+                    <p>请选择一种算法来开始演示</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <h3>控制面板</h3>
+                
+                <div class="control-group">
+                    <label for="algorithm">选择算法</label>
+                    <select id="algorithm">
+                        <option value="bfs">广度优先搜索 (BFS)</option>
+                        <option value="dijkstra">迪杰斯特拉算法 (Dijkstra)</option>
+                        <option value="astar">A* 搜索算法</option>
+                        <option value="greedy">贪婪最佳优先搜索</option>
+                        <option value="slimeMold">真菌生长算法 (Slime Mold)</option>
+                    </select>
+                    <button id="infoButton">算法说明</button>
+                </div>
+                
+                <div class="control-group">
+                    <label for="complexity">地图复杂度</label>
+                    <input type="range" min="10" max="40" value="25" class="range-slider" id="complexity">
+                    <div id="complexityValue">障碍物密度: 25%</div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="gridSize">网格大小</label>
+                    <input type="range" min="20" max="150" value="80" class="range-slider" id="gridSize">
+                    <div id="gridSizeValue">80 x 45</div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="speed">动画速度</label>
+                    <input type="range" min="1" max="100" value="20" class="range-slider" id="speed">
+                    <div id="speedValue">速度: 20</div>
+                </div>
+                
+                <div class="control-group">
+                    <button id="generateMap" class="button-reset">随机生成地图</button>
+                    <button id="startButton" class="button-start">开始寻路</button>
+                    <button id="resetButton">重置</button>
+                </div>
+                
+                <div class="control-group">
+                    <label>放置模式</label>
+                    <div class="radio-group">
+                        <div class="radio-item">
+                            <input type="radio" id="placeStart" name="placeMode" value="start" checked>
+                            <label for="placeStart">起点</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="placeEnd" name="placeMode" value="end">
+                            <label for="placeEnd">终点</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="placeWall" name="placeMode" value="wall">
+                            <label for="placeWall">墙壁</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" id="eraseWall" name="placeMode" value="erase">
+                            <label for="eraseWall">擦除</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <h3>图例</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--neon-green);"></div>
+                    <span>起点</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--neon-pink);"></div>
+                    <span>终点</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #333;"></div>
+                    <span>障碍物</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--neon-blue); opacity: 0.3;"></div>
+                    <span>已探索</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--neon-purple);"></div>
+                    <span>最终路径</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--neon-blue);"></div>
+                    <span>当前探索</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="explanation" id="explanation">
+        <div class="close-explanation" id="closeExplanation">×</div>
+        <div class="explanation-title" id="explanationTitle">算法说明</div>
+        <div class="explanation-content" id="explanationContent"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 定义常量和变量
+            const canvas = document.getElementById('pathCanvas');
+            const ctx = canvas.getContext('2d');
+            const complexitySlider = document.getElementById('complexity');
+            const complexityValue = document.getElementById('complexityValue');
+            const gridSizeSlider = document.getElementById('gridSize');
+            const gridSizeValue = document.getElementById('gridSizeValue');
+            const speedSlider = document.getElementById('speed');
+            const speedValue = document.getElementById('speedValue');
+            const generateMapButton = document.getElementById('generateMap');
+            const startButton = document.getElementById('startButton');
+            const resetButton = document.getElementById('resetButton');
+            const algorithmSelect = document.getElementById('algorithm');
+            const infoButton = document.getElementById('infoButton');
+            const explanation = document.getElementById('explanation');
+            const closeExplanation = document.getElementById('closeExplanation');
+            const explanationTitle = document.getElementById('explanationTitle');
+            const explanationContent = document.getElementById('explanationContent');
+            const algorithmInfo = document.getElementById('algorithmInfo');
+            
+            // 状态显示元素
+            const statusEl = document.getElementById('status');
+            const exploredEl = document.getElementById('explored');
+            const pathLengthEl = document.getElementById('pathLength');
+            const timeEl = document.getElementById('time');
+            
+            // 网格相关变量
+            let cols = 80; // 提高默认分辨率
+            let rows = 45; // 保持适当的宽高比
+            let grid = [];
+            let cellSize = 0;
+            let startCell = null;
+            let endCell = null;
+            let obstacles = [];
+            let isRunning = false;
+            let animationFrameId = null;
+            let openSet = [];
+            let closedSet = [];
+            let path = [];
+            let nodesExplored = 0;
+            let startTime = 0;
+            let endTime = 0;
+            
+            // 算法描述
+            const algorithmDescriptions = {
+                bfs: {
+                    title: "广度优先搜索 (BFS)",
+                    content: `广度优先搜索是最简单的寻路算法之一。它从起点开始，逐层向外扩展，每次都先探索距离起点最近的节点。
+                    
+                    特点:
+                    • 保证找到最短路径（当所有边权重相同时）
+                    • 探索所有可能路径，按照"先进先出"的顺序
+                    • 不考虑启发式信息，纯粹按照距离扩展
+                    
+                    BFS适合用于无权图或所有边权重相同的图中寻找最短路径。`
+                },
+                dijkstra: {
+                    title: "迪杰斯特拉算法 (Dijkstra)",
+                    content: `迪杰斯特拉算法是一种用于找到图中最短路径的算法，由荷兰计算机科学家艾兹赫尔·戴克斯特拉发明。
+                    
+                    特点:
+                    • 保证找到最短路径（即使图中有不同权重的边）
+                    • 使用优先队列，每次选择到起点距离最小的节点
+                    • 适用于有向图和无向图
+                    
+                    迪杰斯特拉算法的核心思想是"贪心"，即每次都选择当前看起来最好的选择。这个算法是A*算法的特例（当启发式函数h(n)=0时）。`
+                },
+                astar: {
+                    title: "A* 搜索算法",
+                    content: `A*算法是一种结合了Dijkstra算法和启发式搜索的寻路算法，被认为是最有效的寻路算法之一。
+                    
+                    特点:
+                    • 使用f(n) = g(n) + h(n)评估函数
+                      - g(n)是从起点到当前节点的实际距离
+                      - h(n)是从当前节点到终点的估计距离（启发式函数）
+                    • 启发式函数必须是"可接受的"才能保证找到最短路径
+                    • 比Dijkstra算法更有效，因为它利用目标信息引导搜索
+                    
+                    A*算法广泛应用于游戏开发、机器人导航和路线规划等领域。`
+                },
+                greedy: {
+                    title: "贪婪最佳优先搜索",
+                    content: `贪婪最佳优先搜索是一种启发式搜索算法，它总是选择看起来离目标最近的节点。
+                    
+                    特点:
+                    • 只使用启发式函数h(n)评估节点
+                    • 搜索速度通常比A*快，但不保证找到最短路径
+                    • 可能会陷入局部最优解
+                    
+                    贪婪算法适合需要快速找到可行解但不一定要最优解的场景。它是A*算法的一个极端情况（当g(n)=0时）。`
+                },
+                slimeMold: {
+                    title: "真菌生长算法 (Slime Mold)",
+                    content: `真菌生长算法是一种基于自然界中真菌生长方式的寻路算法。
+                    
+                    特点:
+                    • 模拟真菌的生长过程，通过试探和适应找到最短路径
+                    • 可以处理动态环境和多目标问题
+                    • 算法复杂度较高，但可以找到优质的近似解
+                    
+                    真菌生长算法适合用于复杂环境和多目标优化问题。`
+                }
+            };
+            
+            // 网格单元类
+            class Cell {
+                constructor(i, j) {
+                    this.i = i;
+                    this.j = j;
+                    this.f = 0;
+                    this.g = 0;
+                    this.h = 0;
+                    this.neighbors = [];
+                    this.previous = null;
+                    this.wall = false;
+                }
+                
+                addNeighbors(grid, cols, rows) {
+                    const i = this.i;
+                    const j = this.j;
+                    
+                    // 添加上下左右四个方向的邻居
+                    if (i < cols - 1) this.neighbors.push(grid[i + 1][j]);
+                    if (i > 0) this.neighbors.push(grid[i - 1][j]);
+                    if (j < rows - 1) this.neighbors.push(grid[i][j + 1]);
+                    if (j > 0) this.neighbors.push(grid[i][j - 1]);
+                    
+                    // 添加对角线方向的邻居（可选）
+                    if (i > 0 && j > 0) this.neighbors.push(grid[i - 1][j - 1]);
+                    if (i < cols - 1 && j > 0) this.neighbors.push(grid[i + 1][j - 1]);
+                    if (i > 0 && j < rows - 1) this.neighbors.push(grid[i - 1][j + 1]);
+                    if (i < cols - 1 && j < rows - 1) this.neighbors.push(grid[i + 1][j + 1]);
+                }
+                
+                show(color) {
+                    const x = this.i * cellSize;
+                    const y = this.j * cellSize;
+                    
+                    // 使用抗锯齿渲染来提高清晰度
+                    if (this.wall) {
+                        // 墙壁使用渐变效果，使其看起来更有立体感
+                        const wallGradient = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
+                        wallGradient.addColorStop(0, '#333');
+                        wallGradient.addColorStop(1, '#222');
+                        ctx.fillStyle = wallGradient;
+                        ctx.strokeStyle = '#444';
+                    } else {
+                        ctx.fillStyle = color || '#001122';
+                        // 只在单元格大于特定尺寸时绘制边框，避免小网格时过度拥挤
+                        ctx.strokeStyle = cellSize > 4 ? '#0a0a12' : 'transparent';
+                    }
+                    
+                    // 使用整数坐标以确保渲染清晰
+                    const roundedX = Math.round(x);
+                    const roundedY = Math.round(y);
+                    const roundedSize = Math.round(cellSize);
+                    
+                    // 填充单元格
+                    ctx.fillRect(roundedX, roundedY, roundedSize, roundedSize);
+                    
+                    // 只在单元格足够大时绘制边框
+                    if (cellSize > 4) {
+                        ctx.strokeRect(roundedX, roundedY, roundedSize, roundedSize);
+                    }
+                }
+            }
+            
+            // 初始化函数
+            function init() {
+                // 设置Canvas大小
+                // 设置Canvas以匹配设计目标 1920x1080 的比例
+                const containerWidth = canvas.parentElement.clientWidth;
+                // 保持16:9的宽高比，更接近1920x1080的标准
+                const containerHeight = Math.min(window.innerHeight * 0.8, containerWidth * 9/16);
+                canvas.width = containerWidth;
+                canvas.height = containerHeight;
+                
+                // 更新网格大小
+                updateGridSize();
+                
+                // 设置事件监听器
+                setupEventListeners();
+                
+                // 创建初始网格
+                createGrid();
+                
+                // 设置默认起点和终点
+                startCell = grid[Math.floor(cols / 4)][Math.floor(rows / 2)];
+                endCell = grid[Math.floor(cols * 3 / 4)][Math.floor(rows / 2)];
+                
+                // 生成随机地图
+                generateRandomMap();
+                
+                // 首次绘制
+                draw();
+                
+                // 更新算法信息
+                updateAlgorithmInfo();
+            }
+            
+            // 设置事件监听器
+            function setupEventListeners() {
+                // 滑块事件
+                complexitySlider.addEventListener('input', function() {
+                    complexityValue.textContent = `障碍物密度: ${this.value}%`;
+                });
+                
+                gridSizeSlider.addEventListener('input', function() {
+                    // 提高滑块的范围和精度
+                    cols = parseInt(this.value);
+                    // 根据canvas宽高比例计算行数，保持单元格接近正方形
+                    const canvasRatio = canvas.width / canvas.height;
+                    rows = Math.floor(cols / canvasRatio);
+                    
+                    gridSizeValue.textContent = `${cols} x ${rows}`;
+                    
+                    createGrid();
+                    startCell = grid[Math.floor(cols / 4)][Math.floor(rows / 2)];
+                    endCell = grid[Math.floor(cols * 3 / 4)][Math.floor(rows / 2)];
+                    draw();
+                });
+                
+                speedSlider.addEventListener('input', function() {
+                    speedValue.textContent = `速度: ${this.value}`;
+                });
+                
+                // 按钮事件
+                generateMapButton.addEventListener('click', generateRandomMap);
+                startButton.addEventListener('click', startPathfinding);
+                resetButton.addEventListener('click', resetSimulation);
+                infoButton.addEventListener('click', showExplanation);
+                closeExplanation.addEventListener('click', hideExplanation);
+                
+                // 算法选择事件
+                algorithmSelect.addEventListener('change', updateAlgorithmInfo);
+                
+                // Canvas点击事件
+                canvas.addEventListener('mousedown', handleCanvasClick);
+            }
+            
+            // 更新网格大小
+            function updateGridSize() {
+                // 精确计算单元格大小，避免像素对齐问题导致的模糊
+                cellSize = Math.min(
+                    canvas.width / cols,
+                    canvas.height / rows
+                );
+                
+                // 确保cellSize是整数，以获得更清晰的渲染
+                cellSize = Math.floor(cellSize);
+                if (cellSize < 1) cellSize = 1; // 确保最小尺寸
+            }
+            
+            // 创建网格
+            function createGrid() {
+                grid = new Array(cols);
+                
+                for (let i = 0; i < cols; i++) {
+                    grid[i] = new Array(rows);
+                    for (let j = 0; j < rows; j++) {
+                        grid[i][j] = new Cell(i, j);
+                    }
+                }
+                
+                // 添加邻居
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        grid[i][j].addNeighbors(grid, cols, rows);
+                    }
+                }
+                
+                updateGridSize();
+            }
+            
+            // 生成随机地图
+            function generateRandomMap() {
+                if (isRunning) return;
+                
+                resetSimulation();
+                
+                const complexity = parseInt(complexitySlider.value);
+                
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        grid[i][j].wall = false;
+                    }
+                }
+                
+                // 随机放置障碍物
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        if (Math.random() < complexity / 100 && 
+                            !(i === startCell.i && j === startCell.j) && 
+                            !(i === endCell.i && j === endCell.j)) {
+                            grid[i][j].wall = true;
+                        }
+                    }
+                }
+                
+                draw();
+            }
+            
+            // 绘制函数
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制所有单元格
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        grid[i][j].show();
+                    }
+                }
+                
+                // 绘制已探索的节点
+                for (let i = 0; i < closedSet.length; i++) {
+                    closedSet[i].show('rgba(5, 217, 232, 0.3)'); // 淡蓝色
+                }
+                
+                // 绘制开放集中的节点
+                for (let i = 0; i < openSet.length; i++) {
+                    openSet[i].show('rgba(5, 217, 232, 0.8)'); // 蓝色
+                }
+                
+                // 绘制路径
+                for (let i = 0; i < path.length; i++) {
+                    path[i].show('#d162a4'); // 紫色
+                }
+                
+                // 绘制起点和终点
+                if (startCell) {
+                    ctx.fillStyle = '#00ff9f'; // 绿色
+                    ctx.fillRect(startCell.i * cellSize, startCell.j * cellSize, cellSize, cellSize);
+                    ctx.strokeStyle = '#333';
+                    ctx.strokeRect(startCell.i * cellSize, startCell.j * cellSize, cellSize, cellSize);
+                }
+                
+                if (endCell) {
+                    ctx.fillStyle = '#ff2a6d'; // 粉色
+                    ctx.fillRect(endCell.i * cellSize, endCell.j * cellSize, cellSize, cellSize);
+                    ctx.strokeStyle = '#333';
+                    ctx.strokeRect(endCell.i * cellSize, endCell.j * cellSize, cellSize, cellSize);
+                }
+            }
+            
+            // 启动寻路
+            function startPathfinding() {
+                if (isRunning) return;
+                if (!startCell || !endCell) {
+                    alert('请先设置起点和终点');
+                    return;
+                }
+                
+                resetSimulation(false);
+                isRunning = true;
+                startButton.disabled = true;
+                generateMapButton.disabled = true;
+                
+                statusEl.textContent = '寻路中...';
+                nodesExplored = 0;
+                exploredEl.textContent = '0';
+                pathLengthEl.textContent = '0';
+                timeEl.textContent = '0 ms';
+                startTime = performance.now();
+                
+                const algorithm = algorithmSelect.value;
+                
+                openSet = [];
+                closedSet = [];
+                
+                // 初始化起点
+                startCell.g = 0;
+                startCell.f = heuristic(startCell, endCell);
+                openSet.push(startCell);
+                
+                // 开始动画
+                animate();
+            }
+            
+            // 动画循环
+            function animate() {
+                if (openSet.length > 0 && isRunning) {
+                    const speed = parseInt(speedSlider.value);
+                    let iterations = 0;
+                    
+                    while (iterations < speed && openSet.length > 0 && isRunning) {
+                        iterations++;
+                        
+                        const algorithm = algorithmSelect.value;
+                        let result;
+                        
+                        switch (algorithm) {
+                            case 'bfs':
+                                result = stepBFS();
+                                break;
+                            case 'dijkstra':
+                                result = stepDijkstra();
+                                break;
+                            case 'astar':
+                                result = stepAStar();
+                                break;
+                            case 'greedy':
+                                result = stepGreedy();
+                                break;
+                            case 'slimeMold':
+                                result = stepSlimeMold();
+                                break;
+                        }
+                        
+                        if (result) {
+                            endTime = performance.now();
+                            // 只为非真菌算法构建路径，真菌算法已经在stepSlimeMold中构建了路径
+                            if (algorithm !== 'slimeMold') {
+                                constructPath();
+                            }
+                            statusEl.textContent = '已找到路径!';
+                            exploredEl.textContent = nodesExplored;
+                            timeEl.textContent = Math.round(endTime - startTime) + ' ms';
+                            pathLengthEl.textContent = path.length;
+                            startButton.disabled = false;
+                            generateMapButton.disabled = false;
+                            isRunning = false;
+                            draw();
+                            return;
+                        }
+                    }
+                    
+                    // 更新状态
+                    exploredEl.textContent = nodesExplored;
+                    timeEl.textContent = Math.round(performance.now() - startTime);
+                    
+                    draw();
+                    animationFrameId = requestAnimationFrame(animate);
+                } else if (openSet.length === 0 && isRunning) {
+                    endTime = performance.now();
+                    statusEl.textContent = '无法找到路径!';
+                    timeEl.textContent = Math.round(endTime - startTime);
+                    startButton.disabled = false;
+                    generateMapButton.disabled = false;
+                    isRunning = false;
+                }
+            }
+            
+            // BFS步进
+            function stepBFS() {
+                if (openSet.length > 0) {
+                    // BFS使用队列，所以取第一个元素
+                    const current = openSet.shift();
+                    nodesExplored++;
+                    
+                    // 检查是否到达终点
+                    if (current === endCell) {
+                        return true;
+                    }
+                    
+                    closedSet.push(current);
+                    
+                    // 检查所有邻居
+                    for (let i = 0; i < current.neighbors.length; i++) {
+                        const neighbor = current.neighbors[i];
+                        
+                        // 如果未探索过且不是墙
+                        if (!closedSet.includes(neighbor) && !openSet.includes(neighbor) && !neighbor.wall) {
+                            neighbor.previous = current;
+                            openSet.push(neighbor);
+                        }
+                    }
+                }
+                return false;
+            }
+            
+            // Dijkstra步进
+            function stepDijkstra() {
+                if (openSet.length > 0) {
+                    // 找到开放集中g值最小的节点
+                    let lowestIndex = 0;
+                    for (let i = 0; i < openSet.length; i++) {
+                        if (openSet[i].g < openSet[lowestIndex].g) {
+                            lowestIndex = i;
+                        }
+                    }
+                    
+                    const current = openSet[lowestIndex];
+                    nodesExplored++;
+                    
+                    // 检查是否到达终点
+                    if (current === endCell) {
+                        return true;
+                    }
+                    
+                    // 从开放集中移除当前节点
+                    openSet.splice(lowestIndex, 1);
+                    closedSet.push(current);
+                    
+                    // 检查所有邻居
+                    for (let i = 0; i < current.neighbors.length; i++) {
+                        const neighbor = current.neighbors[i];
+                        
+                        // 如果未探索过且不是墙
+                        if (!closedSet.includes(neighbor) && !neighbor.wall) {
+                            const tempG = current.g + 1; // 假设所有边权重为1
+                            
+                            let newPath = false;
+                            if (openSet.includes(neighbor)) {
+                                if (tempG < neighbor.g) {
+                                    neighbor.g = tempG;
+                                    newPath = true;
+                                }
+                            } else {
+                                neighbor.g = tempG;
+                                newPath = true;
+                                openSet.push(neighbor);
+                            }
+                            
+                            if (newPath) {
+                                neighbor.h = 0; // Dijkstra不使用启发式
+                                neighbor.f = neighbor.g;
+                                neighbor.previous = current;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+            
+            // A*步进
+            function stepAStar() {
+                if (openSet.length > 0) {
+                    // 找到开放集中f值最小的节点
+                    let lowestIndex = 0;
+                    for (let i = 0; i < openSet.length; i++) {
+                        if (openSet[i].f < openSet[lowestIndex].f) {
+                            lowestIndex = i;
+                        }
+                    }
+                    
+                    const current = openSet[lowestIndex];
+                    nodesExplored++;
+                    
+                    // 检查是否到达终点
+                    if (current === endCell) {
+                        return true;
+                    }
+                    
+                    // 从开放集中移除当前节点
+                    openSet.splice(lowestIndex, 1);
+                    closedSet.push(current);
+                    
+                    // 检查所有邻居
+                    for (let i = 0; i < current.neighbors.length; i++) {
+                        const neighbor = current.neighbors[i];
+                        
+                        // 如果未探索过且不是墙
+                        if (!closedSet.includes(neighbor) && !neighbor.wall) {
+                            // g值是从起点到当前节点的距离
+                            // 对角线移动时距离为1.414（sqrt(2)），直线移动为1
+                            let tempG = current.g;
+                            if (neighbor.i !== current.i && neighbor.j !== current.j) {
+                                tempG += 1.414; // 对角线移动
+                            } else {
+                                tempG += 1; // 直线移动
+                            }
+                            
+                            let newPath = false;
+                            if (openSet.includes(neighbor)) {
+                                if (tempG < neighbor.g) {
+                                    neighbor.g = tempG;
+                                    newPath = true;
+                                }
+                            } else {
+                                neighbor.g = tempG;
+                                newPath = true;
+                                openSet.push(neighbor);
+                            }
+                            
+                            if (newPath) {
+                                neighbor.h = heuristic(neighbor, endCell);
+                                neighbor.f = neighbor.g + neighbor.h;
+                                neighbor.previous = current;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+            
+            // 贪婪最佳优先搜索步进
+            function stepGreedy() {
+                if (openSet.length > 0) {
+                    // 找到开放集中h值最小的节点
+                    let lowestIndex = 0;
+                    for (let i = 0; i < openSet.length; i++) {
+                        if (openSet[i].h < openSet[lowestIndex].h) {
+                            lowestIndex = i;
+                        }
+                    }
+                    
+                    const current = openSet[lowestIndex];
+                    nodesExplored++;
+                    
+                    // 检查是否到达终点
+                    if (current === endCell) {
+                        return true;
+                    }
+                    
+                    // 从开放集中移除当前节点
+                    openSet.splice(lowestIndex, 1);
+                    closedSet.push(current);
+                    
+                    // 检查所有邻居
+                    for (let i = 0; i < current.neighbors.length; i++) {
+                        const neighbor = current.neighbors[i];
+                        
+                        // 如果未探索过且不是墙
+                        if (!closedSet.includes(neighbor) && !openSet.includes(neighbor) && !neighbor.wall) {
+                            neighbor.h = heuristic(neighbor, endCell);
+                            neighbor.f = neighbor.h; // 贪婪搜索只使用启发式
+                            neighbor.previous = current;
+                            openSet.push(neighbor);
+                        }
+                    }
+                }
+                return false;
+            }
+            
+            // 真菌生长算法步进
+            function stepSlimeMold() {
+                // 第一次运行时初始化
+                if (!window.slimeMoldInitialized) {
+                    initSlimeMold();
+                    window.slimeMoldInitialized = true;
+                }
+                
+                // 运行真菌生长算法
+                let foundPath = false;
+                
+                // 更新探索节点数量 - 使用closedSet的长度作为探索节点数
+                nodesExplored = closedSet.length;
+                
+                for (let i = 0; i < window.slimeMoldAgents.length; i++) {
+                    const agent = window.slimeMoldAgents[i];
+                    
+                    // 检查是否到达终点
+                    if (Math.floor(agent.x) === endCell.i && Math.floor(agent.y) === endCell.j) {
+                        foundPath = true;
+                        // 标记路径 - 使用代理自己的路径
+                        reconstructSlimeMoldPath(agent);
+                        break;
+                    }
+                    
+                    // 传感器检测
+                    const sensorReading = detectSensor(agent);
+                    
+                    // 根据传感器读数更新方向
+                    agent.direction += sensorReading * window.slimeMoldSettings.rotationAngle;
+                    
+                    // 移动代理
+                    const newX = agent.x + Math.cos(agent.direction);
+                    const newY = agent.y + Math.sin(agent.direction);
+                    
+                    // 检查边界和障碍物
+                    if (isValidMove(Math.floor(newX), Math.floor(newY))) {
+                        // 记录移动前的位置
+                        const prevX = Math.floor(agent.x);
+                        const prevY = Math.floor(agent.y);
+                        
+                        // 更新位置
+                        agent.x = newX;
+                        agent.y = newY;
+                        
+                        // 记录路径
+                        const currentX = Math.floor(agent.x);
+                        const currentY = Math.floor(agent.y);
+                        
+                        // 只有当位置实际改变时才记录
+                        if (currentX !== prevX || currentY !== prevY) {
+                            // 记录当前单元格到路径中
+                            agent.path.push({ x: currentX, y: currentY });
+                        }
+                        
+                        // 信息素沉积
+                        if (currentX >= 0 && currentX < cols && currentY >= 0 && currentY < rows) {
+                            window.pheromoneGrid[currentX][currentY] += window.slimeMoldSettings.depositAmount;
+                            
+                            // 可视化 - 标记为已访问
+                            if (!closedSet.includes(grid[currentX][currentY])) {
+                                closedSet.push(grid[currentX][currentY]);
+                            }
+                        }
+                    } else {
+                        // 如果遇到障碍物，随机改变方向
+                        agent.direction = Math.random() * 2 * Math.PI;
+                    }
+                }
+                
+                // 信息素蒸发
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        window.pheromoneGrid[i][j] *= window.slimeMoldSettings.evaporationRate;
+                    }
+                }
+                
+                return foundPath;
+            }
+            
+            // 启发式函数 - 曼哈顿距离
+            function heuristic(a, b) {
+                // 曼哈顿距离
+                // return Math.abs(a.i - b.i) + Math.abs(a.j - b.j);
+                
+                // 欧几里得距离
+                return Math.sqrt(Math.pow(a.i - b.i, 2) + Math.pow(a.j - b.j, 2));
+            }
+            
+            // 构建最终路径
+            function constructPath() {
+                path = [];
+                let temp = endCell;
+                path.push(temp);
+                
+                while (temp.previous) {
+                    path.push(temp.previous);
+                    temp = temp.previous;
+                }
+            }
+            
+            // 重置模拟
+            function resetSimulation(resetNodes = true) {
+                isRunning = false;
+                
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+                
+                openSet = [];
+                closedSet = [];
+                path = [];
+                
+                if (resetNodes) {
+                    startCell = grid[Math.floor(cols / 4)][Math.floor(rows / 2)];
+                    endCell = grid[Math.floor(cols * 3 / 4)][Math.floor(rows / 2)];
+                }
+                
+                // 重置所有节点
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        grid[i][j].f = 0;
+                        grid[i][j].g = 0;
+                        grid[i][j].h = 0;
+                        grid[i][j].previous = null;
+                    }
+                }
+                
+                // 重置真菌算法的状态
+                window.slimeMoldInitialized = false;
+                window.slimeMoldAgents = [];
+                window.pheromoneGrid = [];
+                
+                // 更新可视化
+                draw();
+                
+                // 更新统计信息
+                document.getElementById('explored').textContent = '0';
+                document.getElementById('pathLength').textContent = '0';
+                document.getElementById('time').textContent = '0 ms';
+            }
+            
+            // 处理Canvas点击
+            function handleCanvasClick(e) {
+                if (isRunning) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                const mouseX = (e.clientX - rect.left) * scaleX;
+                const mouseY = (e.clientY - rect.top) * scaleY;
+                
+                const i = Math.floor(mouseX / cellSize);
+                const j = Math.floor(mouseY / cellSize);
+                
+                // 确保点击在网格范围内
+                if (i >= 0 && i < cols && j >= 0 && j < rows) {
+                    const cell = grid[i][j];
+                    
+                    // 根据放置模式执行不同操作
+                    const placeMode = document.querySelector('input[name="placeMode"]:checked').value;
+                    
+                    switch (placeMode) {
+                        case 'start':
+                            if (!cell.wall && cell !== endCell) {
+                                startCell = cell;
+                            }
+                            break;
+                        case 'end':
+                            if (!cell.wall && cell !== startCell) {
+                                endCell = cell;
+                            }
+                            break;
+                        case 'wall':
+                            if (cell !== startCell && cell !== endCell) {
+                                cell.wall = true;
+                            }
+                            break;
+                        case 'erase':
+                            cell.wall = false;
+                            break;
+                    }
+                    
+                    draw();
+                }
+            }
+            
+            // 更新算法信息
+            function updateAlgorithmInfo() {
+                const algorithm = algorithmSelect.value;
+                const description = algorithmDescriptions[algorithm];
+                
+                const infoHTML = `
+                    <h4>${description.title}</h4>
+                    <p>${description.content.split('\n')[0]}</p>
+                `;
+                
+                algorithmInfo.innerHTML = infoHTML;
+            }
+            
+            // 显示算法说明
+            function showExplanation() {
+                const algorithm = algorithmSelect.value;
+                const description = algorithmDescriptions[algorithm];
+                
+                explanationTitle.textContent = description.title;
+                explanationContent.textContent = description.content;
+                
+                // 定位说明面板
+                const infoButton = document.getElementById('infoButton');
+                const rect = infoButton.getBoundingClientRect();
+                
+                explanation.style.left = `${rect.left + rect.width / 2}px`;
+                explanation.style.top = `${rect.top + rect.height + 10}px`;
+                explanation.style.display = 'block';
+            }
+            
+            // 隐藏算法说明
+            function hideExplanation() {
+                explanation.style.display = 'none';
+            }
+            
+            // 初始化真菌生长算法
+            function initSlimeMold() {
+                window.slimeMoldSettings = {
+                    agentCount: 200,       // 代理数量
+                    depositAmount: 5,      // 信息素沉积量
+                    evaporationRate: 0.95, // 信息素蒸发率
+                    sensorAngle: Math.PI/4, // 传感器角度
+                    sensorDistance: 3,     // 传感器距离
+                    rotationAngle: Math.PI/4 // 旋转角度
+                };
+                
+                window.slimeMoldAgents = [];
+                window.pheromoneGrid = [];
+                
+                // 生成代理 - 所有代理从起点开始
+                for (let i = 0; i < window.slimeMoldSettings.agentCount; i++) {
+                    window.slimeMoldAgents.push({
+                        x: startCell.i,
+                        y: startCell.j,
+                        direction: Math.random() * 2 * Math.PI,
+                        path: [{ x: startCell.i, y: startCell.j }] // 记录路径
+                    });
+                }
+                
+                // 初始化信息素网格
+                for (let i = 0; i < cols; i++) {
+                    window.pheromoneGrid[i] = new Array(rows).fill(0);
+                }
+                
+                // 在终点放置高浓度信息素作为吸引物
+                window.pheromoneGrid[endCell.i][endCell.j] = 1000;
+            }
+            
+            // 传感器检测函数
+            function detectSensor(agent) {
+                // 前方传感器
+                const frontX = agent.x + Math.cos(agent.direction) * window.slimeMoldSettings.sensorDistance;
+                const frontY = agent.y + Math.sin(agent.direction) * window.slimeMoldSettings.sensorDistance;
+                
+                // 左侧传感器
+                const leftAngle = agent.direction - window.slimeMoldSettings.sensorAngle;
+                const leftX = agent.x + Math.cos(leftAngle) * window.slimeMoldSettings.sensorDistance;
+                const leftY = agent.y + Math.sin(leftAngle) * window.slimeMoldSettings.sensorDistance;
+                
+                // 右侧传感器
+                const rightAngle = agent.direction + window.slimeMoldSettings.sensorAngle;
+                const rightX = agent.x + Math.cos(rightAngle) * window.slimeMoldSettings.sensorDistance;
+                const rightY = agent.y + Math.sin(rightAngle) * window.slimeMoldSettings.sensorDistance;
+                
+                // 获取传感器位置的信息素浓度
+                const frontPheromone = getPheromoneAt(frontX, frontY);
+                const leftPheromone = getPheromoneAt(leftX, leftY);
+                const rightPheromone = getPheromoneAt(rightX, rightY);
+                
+                // 根据信息素浓度决定转向
+                if (frontPheromone > leftPheromone && frontPheromone > rightPheromone) {
+                    return 0; // 直行
+                } else if (leftPheromone > rightPheromone) {
+                    return -1; // 左转
+                } else if (rightPheromone > leftPheromone) {
+                    return 1; // 右转
+                } else {
+                    return 0; // 默认直行
+                }
+            }
+            
+            // 获取指定位置的信息素浓度
+            function getPheromoneAt(x, y) {
+                const cellX = Math.floor(x);
+                const cellY = Math.floor(y);
+                
+                // 检查边界
+                if (cellX < 0 || cellX >= cols || cellY < 0 || cellY >= rows) {
+                    return 0;
+                }
+                
+                // 检查是否是障碍物
+                if (grid[cellX][cellY].wall) {
+                    return 0;
+                }
+                
+                return window.pheromoneGrid[cellX][cellY];
+            }
+            
+            // 检查移动是否有效
+            function isValidMove(x, y) {
+                // 检查边界
+                if (x < 0 || x >= cols || y < 0 || y >= rows) {
+                    return false;
+                }
+                
+                // 检查是否是障碍物
+                if (grid[x][y].wall) {
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // 重建真菌路径
+            function reconstructSlimeMoldPath(agent) {
+                // 清空当前路径
+                path = [];
+                
+                // 使用代理自己的路径
+                if (agent.path && agent.path.length > 0) {
+                    // 添加代理路径中的每个点
+                    for (let i = 0; i < agent.path.length; i++) {
+                        const point = agent.path[i];
+                        if (point.x >= 0 && point.x < cols && point.y >= 0 && point.y < rows) {
+                            path.push(grid[point.x][point.y]);
+                        }
+                    }
+                    
+                    // 如果路径的最后一个点不是终点，添加终点
+                    const lastPoint = agent.path[agent.path.length - 1];
+                    if (lastPoint.x !== endCell.i || lastPoint.y !== endCell.j) {
+                        path.push(endCell);
+                    }
+                } else {
+                    // 如果没有路径，至少添加起点和终点
+                    path.push(startCell);
+                    path.push(endCell);
+                }
+            }
+            
+            // 初始化应用
+            init();
+            
+            // 处理窗口大小变化
+            window.addEventListener('resize', function() {
+                const containerWidth = canvas.parentElement.clientWidth;
+                // 保持16:9的宽高比，更接近1920x1080的标准
+                const containerHeight = Math.min(window.innerHeight * 0.8, containerWidth * 9/16);
+                canvas.width = containerWidth;
+                canvas.height = containerHeight;
+                
+                // 根据新的画布尺寸重新计算行数，保持单元格形状
+                const canvasRatio = canvas.width / canvas.height;
+                rows = Math.floor(cols / canvasRatio);
+                
+                // 重建网格以适应新的行数
+                createGrid();
+                if (!startCell || !endCell) {
+                    startCell = grid[Math.floor(cols / 4)][Math.floor(rows / 2)];
+                    endCell = grid[Math.floor(cols * 3 / 4)][Math.floor(rows / 2)];
+                }
+                
+                updateGridSize();
+                draw();
+            });
+        });
+    </script>
+</body>
+</html>

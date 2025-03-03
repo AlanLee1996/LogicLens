@@ -1,0 +1,30 @@
+{
+  "name": "logiclens",
+  "version": "1.0.0",
+  "description": "逻辑透镜 - 用科幻可视化展示生活和科学逻辑",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "visualization",
+    "logic",
+    "science",
+    "education"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pinia": "^3.0.1",
+    "vue": "^3.4.19",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.2.0"
+  }
+}
