@@ -1,11 +1,12 @@
 # LogicLens (逻辑透镜)
 
 <div align="center">
-  <img src="public/images/home-preview.jpg" alt="LogicLens Logo" width="622" height="446">
+  <a href="http://logiclens.crstu.com/"><img src="public/images/home-preview.jpg" alt="LogicLens Logo" width="622" height="446"></a>
   <h3>在可互动的演示中，自由探索复杂概念</h3>
 </div>
 
 ## 项目简介
+[demo演示](http://logiclens.crstu.com/)
 
 LogicLens（逻辑透镜）是一个致力于通过可交互的可视化演示，将复杂的科学和生活逻辑以深入浅出的方式呈现给大众的项目。通过结合现代Web技术和科幻风格的UI设计，我们创建了一系列交互式可视化工具，帮助用户理解各种复杂概念。
 
@@ -77,6 +78,5 @@ GitHub Issues: [https://github.com/AlanLee1996/LogicLens/issues](https://github.
 
 ---
 
-<div align="center">
-  <p>无论您是科学爱好者、学生、教育工作者，还是对世界运作原理充满好奇的人，LogicLens都能为您提供一个全新的视角，探索各种现象背后的逻辑。</p>
-</div>
+# 已部署demo
+[demo演示](http://logiclens.crstu.com/)
